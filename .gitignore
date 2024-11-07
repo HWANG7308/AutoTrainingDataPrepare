@@ -162,8 +162,8 @@ cython_debug/
 #.idea/
 
 # Customized configuration
-TBD/*
-result/*
-ur_log/*
+TBD*
+result*
+ur_log*
 URBasic/__pycache__/*
 .DS_Store
