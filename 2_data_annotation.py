@@ -216,7 +216,8 @@ class Annotator6DPose:  # TODO fix this annotator
         draw xyz-axis
         """
 
-        color = cv2.resize(self.ori_color, (640, 480))
+        color = self.ori_color
+        # color = cv2.resize(color, (640, 480))
 
         vis = self.draw_xyz_axis(
             color,
@@ -315,48 +316,83 @@ class Annotator6DPose:  # TODO fix this annotator
         return tmp
 
 
-class Annotator_3DBBox:  # TODO fix this annotator
-    def __init__(self, img_top, img_front, annotation_top, annotation_front):
+class Annotator3DBBox:  # TODO fix this annotator
+    def __init__(self, color_img_path, depth_img_path, meta_path):
 
-        self.img_top = img_top
-        self.img_front = img_front
+        self.color_img_path = color_img_path
+        self.depth_img_path = depth_img_path
+        self.meta_path = meta_path
 
-        self.annotation_top = annotation_top
-        self.annotation_front = annotation_front
+        self.ori_color = cv2.imread(self.color_img_path)
+        self.rgb_img = cv2.cvtColor(self.ori_color, cv2.COLOR_BGR2RGB)
+
+        # self.ori_depth = cv2.imread(self.depth_img_path)
+
+        with open(self.meta_path, "r") as f:
+            self.meta = json.load(f)
+
+        self.object_pose = np.matrix(self.meta.get("object_pose"))
+
+        self.transformation_matrix = np.matrix(self.meta.get("object_pose"))
+        self.rotation_matrix = self.object_pose[:3, :3]
+        self.translation_vector = self.object_pose[:3, 3]
+
+        self.cam_K = np.array(
+            [
+                [
+                    self.meta.get("intrinsics_color").get("fx"),
+                    0,
+                    self.meta.get("intrinsics_color").get("ppx"),
+                ],
+                [
+                    0,
+                    self.meta.get("intrinsics_color").get("fy"),
+                    self.meta.get("intrinsics_color").get("ppy"),
+                ],
+                [0, 0, 1],
+            ]
+        )
 
         self.annotations = None
 
-    def annotate(self, show_result=False):
+    def reconstruct_oriented_3dbbox(self, annotation_top, annotation_front):
         """generate 3D BBox (cuboid) given the 2D BBoxes of the front and top view"""
 
-        bbox_top = self.annotation_top[0].get("shapes")[0].get("points")
-        bbox_front = self.annotation_front[0].get("shapes")[0].get("points")
+        bbox_top = annotation_top[0].get("shapes")[0].get("points")
+        bbox_front = annotation_front[0].get("shapes")[0].get("points")
 
-        length = bbox_top[1][0] - bbox_top[0][0]
-        breadth = bbox_top[1][1] - bbox_top[0][1]
+        width = bbox_top[1][0] - bbox_top[0][0]
+        depth = bbox_top[1][1] - bbox_top[0][1]
         height = bbox_front[1][1] - bbox_front[0][1]
 
-        center_x = bbox_top[0][0] + length / 2
-        center_y = bbox_top[0][1] + breadth / 2
-        center_z = bbox_front[0][1] + height / 2
+        extents = np.asarray((width, height, depth))
+        oriented_3dbbox = np.stack([-extents / 2, extents / 2], axis=0).reshape(2, 3)
 
-        # TODO fix the annotation here
-        annotation = {
-            "center_point": [center_x, center_y, center_z],
-            "length": length,
-            "breadth": breadth,
-            "height": height,
-            "img_path": os.path.basename(self.color_img_path),
-            "img_height": self.ori_color.shape[0],
-            "img_width": self.ori_color.shape[1],
-        }
+        return oriented_3dbbox
 
-        self.annotations = annotation
+    def annotate(self):
+        pass
 
-        if show_result:
-            self.visualize_3dbbox()
+    def visualize_3dbbox(self, oriented_3dbbox):
+        """
+        draw 3d bounding box
+        """
 
-        return annotation
+        color = self.ori_color
+        # color = cv2.resize(color, (640, 480))
+
+        vis = self.draw_posed_3d_box(
+            img=color,
+            ob_in_cam=np.asarray(self.object_pose),
+            bbox=oriented_3dbbox,
+            K=self.cam_K,
+        )
+
+        cv2.imshow("3D bounding box", vis)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
+        # cv2.imwrite("3D bounding box.png", vis)
 
     def to_homo(self, pts):
         """
@@ -367,7 +403,7 @@ class Annotator_3DBBox:  # TODO fix this annotator
         return homo
 
     def draw_posed_3d_box(
-        self, K=np.eye(3), img, ob_in_cam, bbox, line_color=(0, 255, 0), linewidth=2
+        self, img, ob_in_cam, bbox, K=np.eye(3), line_color=(0, 255, 255), linewidth=2
     ):
         """Revised from 6pack dataset/inference_dataset_nocs.py::projection
         @bbox: (2,3) min/max
@@ -434,6 +470,22 @@ def test_2DBBox():
 def test_6DPose():
     DA = Annotator6DPose(color_img_path, depth_img_path, meta_path)
     DA.annotate(show_result=True)
+
+
+def test_3DBBox():
+    DA_3DBBox = Annotator3DBBox(color_img_path, depth_img_path, meta_path)
+    DA_2DBBox_top = Annotator2DBBox(top_color_img_path, top_depth_img_path)
+    DA_2DBBox_top.annotate()
+    DA_2DBBox_front = Annotator2DBBox(front_color_img_path, front_depth_img_path)
+    DA_2DBBox_front.annotate
+    annotation_top = DA_2DBBox_top.annotation
+    annotation_front = DA_2DBBox_front.annotation
+
+    oriented_3dbbox = DA_3DBBox.reconstruct_oriented_3dbbox(
+        annotation_top, annotation_front
+    )
+
+    DA_3DBBox.visualize_3dbbox(oriented_3dbbox)
 
 
 if __name__ == "__main__":
