@@ -244,7 +244,7 @@ class Annotator6DPose:  # TODO fix this annotator
 
     def draw_xyz_axis(
         self,
-        color,
+        color_img,
         ob_in_cam,
         scale=0.1,
         K=np.eye(3),
@@ -255,10 +255,10 @@ class Annotator6DPose:  # TODO fix this annotator
         """From FoundationPose: https://github.com/NVlabs/FoundationPose"""
 
         """
-        @color: BGR
+        @color_img: BGR
         """
         if is_input_rgb:
-            color = cv2.cvtColor(color, cv2.COLOR_RGB2BGR)
+            color_img = cv2.cvtColor(color_img, cv2.COLOR_RGB2BGR)
         xx = np.array([1, 0, 0, 1]).astype(float)
         yy = np.array([0, 1, 0, 1]).astype(float)
         zz = np.array([0, 0, 1, 1]).astype(float)
@@ -271,13 +271,13 @@ class Annotator6DPose:  # TODO fix this annotator
         zz = tuple(self.project_3d_to_2d(zz, K, ob_in_cam))
         line_type = cv2.LINE_AA
         arrow_len = 0
-        tmp = color.copy()
+        tmp = color_img.copy()
         tmp1 = tmp.copy()
         tmp1 = cv2.arrowedLine(
             tmp1,
             origin,
             xx,
-            color=(255, 0, 0),
+            color=(0, 0, 255),
             thickness=thickness,
             line_type=line_type,
             tipLength=arrow_len,
@@ -301,7 +301,7 @@ class Annotator6DPose:  # TODO fix this annotator
             tmp1,
             origin,
             zz,
-            color=(0, 0, 255),
+            color=(255, 0, 0),
             thickness=thickness,
             line_type=line_type,
             tipLength=arrow_len,
@@ -358,8 +358,62 @@ class Annotator_3DBBox:  # TODO fix this annotator
 
         return annotation
 
-    def visualize_3dbbox(self):
-        pass
+    def to_homo(self, pts):
+        """
+        @pts: (N,3 or 2) will homogeneliaze the last dimension
+        """
+        assert len(pts.shape) == 2, f"pts.shape: {pts.shape}"
+        homo = np.concatenate((pts, np.ones((pts.shape[0], 1))), axis=-1)
+        return homo
+
+    def draw_posed_3d_box(
+        self, K=np.eye(3), img, ob_in_cam, bbox, line_color=(0, 255, 0), linewidth=2
+    ):
+        """Revised from 6pack dataset/inference_dataset_nocs.py::projection
+        @bbox: (2,3) min/max
+        @line_color: RGB
+        """
+        min_xyz = bbox.min(axis=0)
+        xmin, ymin, zmin = min_xyz
+        max_xyz = bbox.max(axis=0)
+        xmax, ymax, zmax = max_xyz
+
+        def draw_line3d(self, start, end, img):
+            pts = np.stack((start, end), axis=0).reshape(-1, 3)
+            pts = (ob_in_cam @ self.to_homo(pts).T).T[:, :3]  # (2,3)
+            projected = (K @ pts.T).T
+            uv = np.round(projected[:, :2] / projected[:, 2].reshape(-1, 1)).astype(
+                int
+            )  # (2,2)
+            img = cv2.line(
+                img,
+                uv[0].tolist(),
+                uv[1].tolist(),
+                color=line_color,
+                thickness=linewidth,
+                lineType=cv2.LINE_AA,
+            )
+            return img
+
+        for y in [ymin, ymax]:
+            for z in [zmin, zmax]:
+                start = np.array([xmin, y, z])
+                end = start + np.array([xmax - xmin, 0, 0])
+                img = draw_line3d(start, end, img)
+
+        for x in [xmin, xmax]:
+            for z in [zmin, zmax]:
+                start = np.array([x, ymin, z])
+                end = start + np.array([0, ymax - ymin, 0])
+                img = draw_line3d(start, end, img)
+
+        for x in [xmin, xmax]:
+            for y in [ymin, ymax]:
+                start = np.array([x, y, zmin])
+                end = start + np.array([0, 0, zmax - zmin])
+                img = draw_line3d(start, end, img)
+
+        return img
 
 
 class Annotator_img_seg:  # TODO fix this annotator
