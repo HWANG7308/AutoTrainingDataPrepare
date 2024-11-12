@@ -22,7 +22,7 @@ class Annotator2DBBox:
         self.depth_img_path = depth_img_path
         # self.ori_depth = cv2.imread(self.depth_img_path)
 
-        self.annotation = None
+        self.annotation = {}
 
     def remove_bkg_chroma_key(self, white_range=(100, 255), show_result=False):
         """extract the object in the foreground based on chroma key"""
@@ -189,7 +189,7 @@ class Annotator6DPose:  # TODO fix this annotator
             ]
         )
 
-        self.annotations = None
+        self.annotation = {}
 
     def annotate(self, show_result=False):
         """generate the 6D pose annotation given meta data"""
@@ -207,7 +207,7 @@ class Annotator6DPose:  # TODO fix this annotator
         if show_result:
             self.visualize_6dpose()
 
-        self.annotations = annotation
+        self.annotation = annotation
 
         return annotation
 
@@ -349,7 +349,7 @@ class Annotator3DBBox:  # TODO fix this annotator
             ]
         )
 
-        self.annotations = None
+        self.annotation = {}
 
     def reconstruct_oriented_3dbbox(self, annotation_top, annotation_front):
         """generate 3D BBox (cuboid) given the 2D BBoxes of the front and top view"""
@@ -372,6 +372,8 @@ class Annotator3DBBox:  # TODO fix this annotator
         extents = np.asarray((length, height, width))  # (width, height, depth)
 
         oriented_3dbbox = np.stack([-extents / 2, extents / 2], axis=0).reshape(2, 3)
+
+        self.annotation = {"oriented_3dbbox": oriented_3dbbox}
 
         return oriented_3dbbox
 
