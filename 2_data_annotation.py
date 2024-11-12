@@ -333,10 +333,6 @@ class Annotator3DBBox:  # TODO fix this annotator
 
         self.object_pose = np.matrix(self.meta.get("object_pose"))
 
-        self.transformation_matrix = np.matrix(self.meta.get("object_pose"))
-        self.rotation_matrix = self.object_pose[:3, :3]
-        self.translation_vector = self.object_pose[:3, 3]
-
         self.cam_K = np.array(
             [
                 [
@@ -358,24 +354,33 @@ class Annotator3DBBox:  # TODO fix this annotator
     def reconstruct_oriented_3dbbox(self, annotation_top, annotation_front):
         """generate 3D BBox (cuboid) given the 2D BBoxes of the front and top view"""
 
-        bbox_top = annotation_top[0].get("shapes")[0].get("points")
-        bbox_front = annotation_front[0].get("shapes")[0].get("points")
+        bbox_top = annotation_top.get("shapes")[0].get("points")
+        bbox_front = annotation_front.get("shapes")[0].get("points")
 
-        width = bbox_top[1][0] - bbox_top[0][0]
-        depth = bbox_top[1][1] - bbox_top[0][1]
+        length = bbox_top[1][0] - bbox_top[0][0]
+        width = bbox_top[1][1] - bbox_top[0][1]
         height = bbox_front[1][1] - bbox_front[0][1]
 
-        extents = np.asarray((width, height, depth))
+        # convert from the pixel space to real-world space
+        img_height, img_width, _ = self.ori_color.shape
+        dist_cam2obj = 0.3  # the distance between the camera and the object, i.e., radius in PoseGenerator
+
+        length = length / img_width * dist_cam2obj
+        width = width / img_height * dist_cam2obj
+        height = height / img_height * dist_cam2obj
+
+        extents = np.asarray((length, height, width))  # (width, height, depth)
+
         oriented_3dbbox = np.stack([-extents / 2, extents / 2], axis=0).reshape(2, 3)
 
         return oriented_3dbbox
 
     def annotate(self):
-        pass
+        raise NotImplemented
 
     def visualize_3dbbox(self, oriented_3dbbox):
         """
-        draw 3d bounding box
+        visualize 3d bounding box
         """
 
         color = self.ori_color
@@ -407,20 +412,21 @@ class Annotator3DBBox:  # TODO fix this annotator
     ):
         """Revised from 6pack dataset/inference_dataset_nocs.py::projection
         @bbox: (2,3) min/max
-        @line_color: RGB
+        @line_color: BGR
         """
         min_xyz = bbox.min(axis=0)
         xmin, ymin, zmin = min_xyz
         max_xyz = bbox.max(axis=0)
         xmax, ymax, zmax = max_xyz
 
-        def draw_line3d(self, start, end, img):
+        def draw_line3d(start, end, img):
             pts = np.stack((start, end), axis=0).reshape(-1, 3)
             pts = (ob_in_cam @ self.to_homo(pts).T).T[:, :3]  # (2,3)
             projected = (K @ pts.T).T
             uv = np.round(projected[:, :2] / projected[:, 2].reshape(-1, 1)).astype(
                 int
             )  # (2,2)
+            print("uv", uv[0].tolist(), uv[1].tolist())
             img = cv2.line(
                 img,
                 uv[0].tolist(),
@@ -473,13 +479,14 @@ def test_6DPose():
 
 
 def test_3DBBox():
-    DA_3DBBox = Annotator3DBBox(color_img_path, depth_img_path, meta_path)
-    DA_2DBBox_top = Annotator2DBBox(top_color_img_path, top_depth_img_path)
+    DA_2DBBox_top = Annotator2DBBox(color_img_path, depth_img_path)
     DA_2DBBox_top.annotate()
-    DA_2DBBox_front = Annotator2DBBox(front_color_img_path, front_depth_img_path)
-    DA_2DBBox_front.annotate
+    DA_2DBBox_front = Annotator2DBBox(color_img_path, depth_img_path)
+    DA_2DBBox_front.annotate()
     annotation_top = DA_2DBBox_top.annotation
     annotation_front = DA_2DBBox_front.annotation
+
+    DA_3DBBox = Annotator3DBBox(color_img_path, depth_img_path, meta_path)
 
     oriented_3dbbox = DA_3DBBox.reconstruct_oriented_3dbbox(
         annotation_top, annotation_front
@@ -489,7 +496,7 @@ def test_3DBBox():
 
 
 if __name__ == "__main__":
-    color_img_path = "results/acquired_data/test1/color_000000.png"
+    color_img_path = "results/acquired_data/test/color_000000.png"
     depth_img_path = None
     meta_path_ = os.path.join(
         os.path.dirname(color_img_path),
@@ -497,6 +504,8 @@ if __name__ == "__main__":
     )
     meta_path = os.path.splitext(meta_path_)[0] + ".json"
 
-    test_2DBBox()
+    # test_2DBBox()
 
-    test_6DPose()
+    # test_6DPose()
+
+    test_3DBBox()
