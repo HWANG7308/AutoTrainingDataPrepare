@@ -17,8 +17,8 @@ import math
 import math3d as m3d
 import cv2
 from utils import PoseGenerator
-from robot_controller import UR5RobotController
-from depth_camera import D435
+from RobotController.UR import UR5RobotController
+from CameraController.DepthCamera import D435
 
 root = str(Path(__file__).resolve().parent)
 
