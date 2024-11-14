@@ -201,7 +201,9 @@ if __name__ == "__main__":
         m3d.Orientation.new_rotation_vector((0, 0, 0)), m3d.Vector(0, 0, 0.05)
     )
 
-    robot_poses = PoseGenerator(T_rob2obj, T_end2cam_temp).generate_positions()[:20]
+    robot_poses = PoseGenerator(
+        T_rob2obj, T_end2cam_temp
+    ).generate_positions_hand_eye_calibration()
 
     # Step 3: Take images with given robot end effector poses
     images = get_images(robot_poses)

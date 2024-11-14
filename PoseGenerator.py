@@ -142,6 +142,49 @@ class PoseGenerator:
 
         return pos_list
 
+    def generate_positions_hand_eye_calibration(self):
+        # Create a list of end-effector positions in spherical coordinate system for hand-eye calibration
+        # TODO: optimize the order of the position list
+
+        print("Generating end-effector poses...")
+
+        theta_step = 2 * math.pi / self.num_azi
+        phi_step = math.pi / 2 / (self.num_polar - 1)
+
+        pos_list = []
+
+        for i in range(self.num_azi // 2):
+            for j in range(self.num_polar // 2):
+                theta = theta_step * i
+                phi = -phi_step * (
+                    j if i % 2 == 0 else len(range(self.num_polar)) - 1 - j
+                )
+
+                T_obj2cam = m3d.Transform(
+                    m3d.Orientation.new_euler((-theta, -phi, 0), "ZXY"),
+                    m3d.Vector(
+                        -self.radius * math.sin(phi) * math.sin(theta),
+                        -self.radius * math.sin(phi) * math.cos(theta),
+                        -self.radius * math.cos(phi),
+                    ),
+                )
+
+                T_rob2end = self.T_rob2obj * T_obj2cam * self.T_end2cam.inverse
+
+                next_pose = T_rob2end.get_logarithm().get_array()
+
+                pos_list.append(
+                    {
+                        "T_obj2cam": T_obj2cam,
+                        "T_rob2end": T_rob2end,
+                        "next pose": next_pose,
+                    }
+                )
+
+        print("End-effector poses generated!")
+
+        return pos_list
+
 
 if __name__ == "__main__":
     """The configurations of the robot system (the object position regarding the robot, the camera position regarding the end effector) _______________________________"""
