@@ -1,9 +1,17 @@
 import math
 import math3d as m3d
+import numpy as np
 
 
 class PoseGenerator:
-    def __init__(self, T_rob2obj, T_end2cam, radius=0.3, num_azi=16, num_polar=5):
+    def __init__(
+        self,
+        T_rob2obj=m3d.Transform(m3d.Orientation(np.eye(3)), m3d.Vector(0, 0, 0)),
+        T_end2cam=m3d.Transform(m3d.Orientation(np.eye(3)), m3d.Vector(0, 0, 0)),
+        radius=0.3,
+        num_azi=16,
+        num_polar=5,
+    ):
         """
         radius: the radius of the hemisphere in meter, the focal length of D435, >=0.3 m for D435 due to the camera's charateristic
         num_azi: the number of points on the same horizontal plane of the hemisphere
@@ -98,7 +106,7 @@ class PoseGenerator:
 
     def generate_positions_move_obj(self):
         """
-        Create a list of end_effector positions in spherical coordinate system
+        Create a list of end effector positions in spherical coordinate system
         This is another way to realize the idea where the robot is moving the object directly
         """
 
