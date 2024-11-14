@@ -506,8 +506,8 @@ if __name__ == "__main__":
     )
     meta_path = os.path.splitext(meta_path_)[0] + ".json"
 
-    # test_2DBBox()
+    test_2DBBox()
 
-    # test_6DPose()
+    test_6DPose()
 
     test_3DBBox()

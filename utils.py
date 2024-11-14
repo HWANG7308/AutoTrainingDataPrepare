@@ -1,163 +1,108 @@
-import math
-import math3d as m3d
 import numpy as np
 
 
-class PoseGenerator:
-    def __init__(
-        self,
-        T_rob2obj=m3d.Transform(m3d.Orientation(np.eye(3)), m3d.Vector(0, 0, 0)),
-        T_end2cam=m3d.Transform(m3d.Orientation(np.eye(3)), m3d.Vector(0, 0, 0)),
-        radius=0.3,
-        num_azi=16,
-        num_polar=5,
-    ):
-        """
-        radius: the radius of the hemisphere in meter, the focal length of D435, >=0.3 m for D435 due to the camera's charateristic
-        num_azi: the number of points on the same horizontal plane of the hemisphere
-        num_polar: the number of points on half of the vertical plane of the hemisphere
-        """
+def get_selection(
+    options_list,
+    text,
+    multi_selection=False,
+    select_from_range=False,
+    with_return=True,
+    with_exit=False,
+):
+    """Enables navigation in a list of options.
 
-        self.T_rob2obj = T_rob2obj
-        self.T_end2cam = T_end2cam
-        self.radius = radius
-        self.num_azi = num_azi
-        self.num_polar = num_polar
+    Args:
+        options_list (list): list of options
+        text (string): text shown in TUI to guide selection
 
-    def generate_position_example(self, theta=0, phi=0):
-        """Create an example end-effector position in spherical coordinate system with defined theta (azimuth) and phi (polar)"""
-
-        print(
-            "Generating the end-effector pose with theta: {} and phi: {}".format(
-                theta, phi
-            )
+    Returns:
+        string: some selection of the given list
+    """
+    selection_string = ""
+    if select_from_range:
+        selection_string += "{}-{}  : select from range\n".format(
+            options_list[0], options_list[-1]
         )
+    else:
+        for i, a in enumerate(options_list):
+            selection_string += "{}   : {}\n".format(i + 1, a)
 
-        pos_list = []
+    if with_exit:
+        selection_string += "exit   : exit program\n"
+        options_list.append("exit")
 
-        # The transformation from the object to the camera (changing, the camera is moving on the hemisphere with the object located at the center of the hemisphere)
-        T_obj2cam = m3d.Transform(
-            m3d.Orientation.new_euler((-theta, -phi, 0), "ZXY"),
-            m3d.Vector(
-                -self.radius * math.sin(phi) * math.sin(theta),
-                -self.radius * math.sin(phi) * math.cos(theta),
-                -self.radius * math.cos(phi),
-            ),
-        )
-        # print("T_obj2cam:", T_obj2cam)
+    while True:
+        # List options and get user input
+        if with_return:
+            selection = input(text + ":\n0   : return\n" + selection_string)
+        else:
+            selection = input(text + ":\n" + selection_string)
 
-        # The position of the end effector regarding the robot
-        T_rob2end = self.T_rob2obj * T_obj2cam * self.T_end2cam.inverse
-        # print("T_rob2end:", T_rob2end)
+        if not multi_selection:
+            single = True
+        else:
+            try:
+                selection = list(selection)
+                if len(selection) == 1:
+                    single = True
+                    selection = selection[0]
+                else:
+                    single = False
+                    selections = []
+                    n = ""
+                    for s in selection:
+                        if s in ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"]:
+                            n += s
+                        elif s == ",":
+                            selections.append(int(n))
+                            n = ""
+                    if len(n) > 0:
+                        selections.append(int(n))
 
-        next_pose = T_rob2end.get_logarithm().get_array()
-        # print("Next pose:", next_pose)
+                    if 0 in selections:
+                        return None
+                    uniques, counts = np.unique(selections, return_counts=True)
+                    if len(uniques) != np.sum(counts):
+                        print(
+                            "Found the value for {} multiple times. Try again.".format(
+                                [x for x in uniques[counts > 1]]
+                            )
+                        )
+                        continue
+                    out_of_scope = [
+                        s for s in selections if s < 0 or s > len(options_list)
+                    ]
+                    if out_of_scope:
+                        print("Found value out of scope for {}".format(out_of_scope))
+                        continue
+                    else:
+                        return [options_list[s - 1] for s in selections]
 
-        print("End-effector poses generated!")
+            except ValueError:
+                print("That is not a valid option. Try again.")
+                continue
 
-        pos_list.append(
-            {"T_obj2cam": T_obj2cam, "T_rob2end": T_rob2end, "next pose": next_pose}
-        )
+        if single:
+            if with_exit:
+                if selection == "exit":
+                    return selection
+            try:
+                # Convert user input to index of options list
+                selection = int(selection)
+            except ValueError:
+                # This is raised when there is input that cannot be converted to an integer
+                print("That is not a valid option. Try again.")
+                continue
 
-        return pos_list
+            # If user input is 0, return None
+            if selection == 0:
+                return None
 
-    def generate_positions(self):
-        # Create a list of end-effector positions in spherical coordinate system
-        # TODO: optimize the order of the position list
+            # If user input is valid, return chosen option
+            elif 0 < selection <= len(options_list):
+                name = options_list[selection - 1]
+                return name
 
-        print("Generating end-effector poses...")
-
-        theta_step = 2 * math.pi / self.num_azi
-        phi_step = math.pi / 2 / (self.num_polar - 1)
-
-        pos_list = []
-
-        for i in range(self.num_azi):
-            for j in range(self.num_polar):
-                theta = theta_step * i
-                phi = -phi_step * (
-                    j if i % 2 == 0 else len(range(self.num_polar)) - 1 - j
-                )
-
-                T_obj2cam = m3d.Transform(
-                    m3d.Orientation.new_euler((-theta, -phi, 0), "ZXY"),
-                    m3d.Vector(
-                        -self.radius * math.sin(phi) * math.sin(theta),
-                        -self.radius * math.sin(phi) * math.cos(theta),
-                        -self.radius * math.cos(phi),
-                    ),
-                )
-
-                T_rob2end = self.T_rob2obj * T_obj2cam * self.T_end2cam.inverse
-
-                next_pose = T_rob2end.get_logarithm().get_array()
-
-                pos_list.append(
-                    {
-                        "T_obj2cam": T_obj2cam,
-                        "T_rob2end": T_rob2end,
-                        "next pose": next_pose,
-                    }
-                )
-
-        print("End-effector poses generated!")
-
-        return pos_list
-
-    def generate_positions_move_obj(self):
-        """
-        Create a list of end effector positions in spherical coordinate system
-        This is another way to realize the idea where the robot is moving the object directly
-        """
-
-        theta_step = 2 * math.pi / self.num_azi
-        phi_step = math.pi / 2 / (self.num_polar - 1)
-
-        pos_list = []
-
-        for i in range(self.num_azi):
-            for j in range(self.num_polar):
-                theta = theta_step * i
-                phi = -phi_step * (
-                    j if i % 2 == 0 else len(range(self.num_polar)) - 1 - j
-                )
-
-                T_end2obj_canonical = m3d.Transform(
-                    m3d.Orientation.new_rotation_vector((0, 0, 0)),
-                    m3d.Vector(0, 0, 0.35),
-                )  # transformation from the tcp to the camera (static)
-
-                T_obj2obj_canonical = m3d.Transform(
-                    m3d.Orientation.new_euler((-theta, -phi, 0), "ZXY"),
-                    m3d.Vector(0, 0, 0),
-                )  # transformation from the tcp to the camera (static)
-
-                T_rob2end = (
-                    self.T_rob2obj * T_obj2obj_canonical * T_end2obj_canonical.inverse
-                )
-
-                next_pose = T_rob2end.get_logarithm().get_array()
-
-                pos_list.append({"T_rob2end": T_rob2end, "next pose": next_pose})
-
-        return pos_list
-
-
-if __name__ == "__main__":
-    """The configurations of the robot system (the object position regarding the robot, the camera position regarding the end effector) _______________________________"""
-    # The transformation from the robot base to the object (static, UR5)
-    T_rob2obj = m3d.Transform(
-        m3d.Orientation.new_rotation_vector((math.pi / 2, 0, 0)), m3d.Vector(0, -0.6, 0)
-    )
-    print("The transformation from the robot base to the object:", T_rob2obj)
-
-    # The transformation from the end effector to the camera (static)
-    T_end2cam = m3d.Transform(
-        m3d.Orientation.new_rotation_vector((0, 0, 0)), m3d.Vector(0, 0, 0.05)
-    )
-    print("The transformation from the end effector to the camera:", T_end2cam)
-
-    """Generalizing the end effector positions to capture object images from various defined views ________________________________________________________________"""
-    poses = PoseGenerator(T_rob2obj, T_end2cam).generate_positions()
-
-    print(poses[0])
+            # If user input is not valid, let the user try again
+            else:
+                print("That is not a valid option. Try again.")

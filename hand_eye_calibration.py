@@ -9,10 +9,10 @@ import numpy as np
 import glob
 import math
 import math3d as m3d
-from utils import PoseGenerator
-from RobotController.UR import UR5RobotController
-from CameraController.DepthCamera import D435
-from utils import PoseGenerator
+from PoseGenerator import PoseGenerator
+from URController import UR5RobotController
+from DepthCamera import D435
+from PoseGenerator import PoseGenerator
 
 
 def get_images(robot_poses):
