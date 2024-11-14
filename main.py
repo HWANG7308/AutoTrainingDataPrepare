@@ -4,7 +4,7 @@ UR robot movement based on RTDE
 Python program for realtime movement of a Universal Robot (tested with UR5cb)
 
 Created by Hao Wang
-License: TODO create a license
+License: MIT License
 
 """
 
