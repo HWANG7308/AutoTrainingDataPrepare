@@ -351,11 +351,11 @@ class Annotator3DBBox:  # TODO fix this annotator
 
         self.annotation = {}
 
-    def reconstruct_oriented_3dbbox(self, annotation_top, annotation_front):
+    def reconstruct_oriented_3dbbox(self, annotation_front, annotation_top):
         """generate 3D BBox (cuboid) given the 2D BBoxes of the front and top view"""
 
-        bbox_top = annotation_top.get("shapes")[0].get("points")
         bbox_front = annotation_front.get("shapes")[0].get("points")
+        bbox_top = annotation_top.get("shapes")[0].get("points")
 
         length = bbox_top[1][0] - bbox_top[0][0]
         width = bbox_top[1][1] - bbox_top[0][1]
@@ -399,7 +399,7 @@ class Annotator3DBBox:  # TODO fix this annotator
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
-        # cv2.imwrite("3D bounding box.png", vis)
+        cv2.imwrite("3D bounding box.png", vis)
 
     def to_homo(self, pts):
         """
