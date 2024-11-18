@@ -29,6 +29,14 @@ class UR5RobotController:
             math.radians(0),
         ]  # the joint values in degree when the robot is at home position
 
+        self.init_position = [
+            math.radians(0),
+            math.radians(-25),
+            math.radians(-155),
+            math.radians(0),
+            math.radians(0),
+            math.radians(0),
+        ]  # The joint positions the robot starts at
         # self.init_position = [
         #     math.radians(149.91),
         #     math.radians(-83.37),
@@ -37,14 +45,6 @@ class UR5RobotController:
         #     math.radians(59.91),
         #     math.radians(180)
         # ]  # The joint positions the robot starts at
-        self.init_position = [
-            math.radians(2),
-            math.radians(-27),
-            math.radians(-158),
-            math.radians(5),
-            math.radians(-2),
-            math.radians(0),
-        ]  # The joint positions the robot starts at
 
         self.init_robot()
 
@@ -55,7 +55,7 @@ class UR5RobotController:
             host=self.robot_ip, robotModel=self.robot_model
         )
         self.robot.reset_error()
-        self.robot.movej(q=self.home_position, a=self.acc, v=self.vel)
+        self.robot.movej(q=self.init_position, a=self.acc, v=self.vel)
 
         self.robot.waitRobotIdleOrStopFlag()
 
