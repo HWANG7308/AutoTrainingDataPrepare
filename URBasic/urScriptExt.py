@@ -1,4 +1,4 @@
-'''
+"""
 Python 3.x library to control an UR robot through its TCP/IP interfaces
 Copyright (C) 2017  Martin Huus Bjerge, Rope Robotics ApS, Denmark
 
@@ -20,7 +20,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 Except as contained in this notice, the name of "Rope Robotics ApS" shall not be used
 in advertising or otherwise to promote the sale, use or other dealings in this Software
 without prior written authorization from "Rope Robotics ApS".
-'''
+"""
+
 __author__ = "Martin Huus Bjerge"
 __copyright__ = "Copyright 2017, Rope Robotics ApS, Denmark"
 __license__ = "MIT License"
@@ -31,7 +32,7 @@ import time
 
 
 class UrScriptExt(URBasic.urScript.UrScript):
-    '''
+    """
     Interface to remote access UR script commands, and add some extended features as well.
     For more details see the script manual at this site:
     http://www.universal-robots.com/download/
@@ -55,18 +56,20 @@ class UrScriptExt(URBasic.urScript.UrScript):
     Example:
     rob = URBasic.urScriptExt.UrScriptExt('192.168.56.101', rtde_conf_filename='rtde_configuration.xml')
     self.close_rtc()
-    '''
+    """
 
     def __init__(self, host, robotModel, hasForceTorque=False, conf_filename=None):
         if host is None:  # Only for enable code completion
             return
-        super(UrScriptExt, self).__init__(host, robotModel, hasForceTorque, conf_filename)
+        super(UrScriptExt, self).__init__(
+            host, robotModel, hasForceTorque, conf_filename
+        )
         logger = URBasic.dataLogging.DataLogging()
         name = logger.AddEventLogging(__name__, log2Consol=False)
         self.__logger = logger.__dict__[name]
         self.print_actual_tcp_pose()
         self.print_actual_joint_positions()
-        self.__logger.info('Init done')
+        self.__logger.info("Init done")
 
     def close(self):
         self.print_actual_tcp_pose()
@@ -74,14 +77,14 @@ class UrScriptExt(URBasic.urScript.UrScript):
         self.robotConnector.close()
 
     def reset_error(self):
-        '''
+        """
         Check if the UR controller is powered on and ready to run.
         If controller isn't power on it will be power up.
         If there is a safety error, it will be tried rest it once.
 
         Return Value:
         state (boolean): True of power is on and no safety errors active.
-        '''
+        """
 
         if not self.robotConnector.RobotModel.RobotStatus().PowerOn:
             # self.robotConnector.DashboardClient.PowerOn()
@@ -91,7 +94,9 @@ class UrScriptExt(URBasic.urScript.UrScript):
             self.robotConnector.DashboardClient.ur_brake_release()
             self.robotConnector.DashboardClient.wait_dbs()
 
-        if self.robotConnector.RobotModel.SafetyStatus().StoppedDueToSafety:  # self.get_safety_status()['StoppedDueToSafety']:
+        if (
+            self.robotConnector.RobotModel.SafetyStatus().StoppedDueToSafety
+        ):  # self.get_safety_status()['StoppedDueToSafety']:
             # self.robotConnector.DashboardClient.UnlockProtectiveStop()
             self.robotConnector.DashboardClient.ur_unlock_protective_stop()
             self.robotConnector.DashboardClient.wait_dbs()
@@ -106,10 +111,13 @@ class UrScriptExt(URBasic.urScript.UrScript):
             self.init_realtime_control()
 
         # return self.get_robot_status()['PowerOn'] & (not self.get_safety_status()['StoppedDueToSafety'])
-        return self.robotConnector.RobotModel.RobotStatus().PowerOn and not self.robotConnector.RobotModel.SafetyStatus().StoppedDueToSafety
+        return (
+            self.robotConnector.RobotModel.RobotStatus().PowerOn
+            and not self.robotConnector.RobotModel.SafetyStatus().StoppedDueToSafety
+        )
 
     def get_in(self, port, wait=True):
-        '''
+        """
         Get input signal level
 
         Parameters:
@@ -118,16 +126,16 @@ class UrScriptExt(URBasic.urScript.UrScript):
 
         Return Value:
         out (bool or float), The signal level.
-        '''
-        if 'BCI' == port[:3]:
+        """
+        if "BCI" == port[:3]:
             return self.get_configurable_digital_in(int(port[4:]), wait)
-        elif 'BDI' == port[:3]:
+        elif "BDI" == port[:3]:
             return self.get_standard_digital_in(int(port[4:]), wait)
-        elif 'BAI' == port[:3]:
+        elif "BAI" == port[:3]:
             return self.get_standard_analog_in(int(port[4:]), wait)
 
     def set_output(self, port, value):
-        '''
+        """
         Get output signal level
 
         Parameters:
@@ -136,15 +144,15 @@ class UrScriptExt(URBasic.urScript.UrScript):
 
         Return Value:
         Status (bool): Status, True if signal set successfully.
-        '''
+        """
 
-        if 'BCO' == port[:3]:
+        if "BCO" == port[:3]:
             self.set_configurable_digital_out(int(port[4:]), value)
-        elif 'BDO' == port[:3]:
+        elif "BDO" == port[:3]:
             self.set_standard_digital_out(int(port[4:]), value)
-        elif 'BAO' == port[:3]:
+        elif "BAO" == port[:3]:
             pass
-        elif 'TDO' == port[:3]:
+        elif "TDO" == port[:3]:
             pass
 
             # if self.sendData():
@@ -154,7 +162,7 @@ class UrScriptExt(URBasic.urScript.UrScript):
             return False
 
     def init_force_remote(self, task_frame=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0], f_type=2):
-        '''
+        """
         The Force Remote function enables changing the force settings dynamically,
         without sending new programs to the robot, and thereby exit and enter force mode again.
         As the new settings are send via RTDE, the force can be updated every 8ms.
@@ -169,48 +177,48 @@ class UrScriptExt(URBasic.urScript.UrScript):
 
         Return Value:
         Status (bool): Status, True if successfully initialized.
-        '''
+        """
 
         if not self.robotConnector.RTDE.isRunning():
-            self.__logger.error('RTDE need to be running to use force remote')
+            self.__logger.error("RTDE need to be running to use force remote")
             return False
 
         selection_vector = [0, 0, 0, 0, 0, 0]
         wrench = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         limits = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
 
-        self.robotConnector.RTDE.setData('input_int_register_0', selection_vector[0])
-        self.robotConnector.RTDE.setData('input_int_register_1', selection_vector[1])
-        self.robotConnector.RTDE.setData('input_int_register_2', selection_vector[2])
-        self.robotConnector.RTDE.setData('input_int_register_3', selection_vector[3])
-        self.robotConnector.RTDE.setData('input_int_register_4', selection_vector[4])
-        self.robotConnector.RTDE.setData('input_int_register_5', selection_vector[5])
+        self.robotConnector.RTDE.setData("input_int_register_0", selection_vector[0])
+        self.robotConnector.RTDE.setData("input_int_register_1", selection_vector[1])
+        self.robotConnector.RTDE.setData("input_int_register_2", selection_vector[2])
+        self.robotConnector.RTDE.setData("input_int_register_3", selection_vector[3])
+        self.robotConnector.RTDE.setData("input_int_register_4", selection_vector[4])
+        self.robotConnector.RTDE.setData("input_int_register_5", selection_vector[5])
 
-        self.robotConnector.RTDE.setData('input_double_register_0', wrench[0])
-        self.robotConnector.RTDE.setData('input_double_register_1', wrench[1])
-        self.robotConnector.RTDE.setData('input_double_register_2', wrench[2])
-        self.robotConnector.RTDE.setData('input_double_register_3', wrench[3])
-        self.robotConnector.RTDE.setData('input_double_register_4', wrench[4])
-        self.robotConnector.RTDE.setData('input_double_register_5', wrench[5])
+        self.robotConnector.RTDE.setData("input_double_register_0", wrench[0])
+        self.robotConnector.RTDE.setData("input_double_register_1", wrench[1])
+        self.robotConnector.RTDE.setData("input_double_register_2", wrench[2])
+        self.robotConnector.RTDE.setData("input_double_register_3", wrench[3])
+        self.robotConnector.RTDE.setData("input_double_register_4", wrench[4])
+        self.robotConnector.RTDE.setData("input_double_register_5", wrench[5])
 
-        self.robotConnector.RTDE.setData('input_double_register_6', limits[0])
-        self.robotConnector.RTDE.setData('input_double_register_7', limits[1])
-        self.robotConnector.RTDE.setData('input_double_register_8', limits[2])
-        self.robotConnector.RTDE.setData('input_double_register_9', limits[3])
-        self.robotConnector.RTDE.setData('input_double_register_10', limits[4])
-        self.robotConnector.RTDE.setData('input_double_register_11', limits[5])
+        self.robotConnector.RTDE.setData("input_double_register_6", limits[0])
+        self.robotConnector.RTDE.setData("input_double_register_7", limits[1])
+        self.robotConnector.RTDE.setData("input_double_register_8", limits[2])
+        self.robotConnector.RTDE.setData("input_double_register_9", limits[3])
+        self.robotConnector.RTDE.setData("input_double_register_10", limits[4])
+        self.robotConnector.RTDE.setData("input_double_register_11", limits[5])
 
-        self.robotConnector.RTDE.setData('input_double_register_12', task_frame[0])
-        self.robotConnector.RTDE.setData('input_double_register_13', task_frame[1])
-        self.robotConnector.RTDE.setData('input_double_register_14', task_frame[2])
-        self.robotConnector.RTDE.setData('input_double_register_15', task_frame[3])
-        self.robotConnector.RTDE.setData('input_double_register_16', task_frame[4])
-        self.robotConnector.RTDE.setData('input_double_register_17', task_frame[5])
+        self.robotConnector.RTDE.setData("input_double_register_12", task_frame[0])
+        self.robotConnector.RTDE.setData("input_double_register_13", task_frame[1])
+        self.robotConnector.RTDE.setData("input_double_register_14", task_frame[2])
+        self.robotConnector.RTDE.setData("input_double_register_15", task_frame[3])
+        self.robotConnector.RTDE.setData("input_double_register_16", task_frame[4])
+        self.robotConnector.RTDE.setData("input_double_register_17", task_frame[5])
 
-        self.robotConnector.RTDE.setData('input_int_register_6', f_type)
+        self.robotConnector.RTDE.setData("input_int_register_6", f_type)
         self.robotConnector.RTDE.sendData()
 
-        prog = '''def force_remote():
+        prog = """def force_remote():
     while (True):
 
         global task_frame =  p[read_input_float_register(12),
@@ -248,13 +256,19 @@ class UrScriptExt(URBasic.urScript.UrScript):
         sync()
     end
 end
-'''
+"""
         self.robotConnector.RealTimeClient.SendProgram(prog.format(**locals()))
         self.robotConnector.RobotModel.forceRemoteActiveFlag = True
 
-    def set_force_remote(self, task_frame=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0], selection_vector=[0, 0, 0, 0, 0, 0],
-                         wrench=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0], limits=[0.1, 0.1, 0.1, 0.1, 0.1, 0.1], f_type=2):
-        '''
+    def set_force_remote(
+        self,
+        task_frame=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        selection_vector=[0, 0, 0, 0, 0, 0],
+        wrench=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        limits=[0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
+        f_type=2,
+    ):
+        """
         Update/set remote force, see "init_force_remote" for more details.
 
         Parameters:
@@ -289,83 +303,98 @@ end
 
         Return Value:
         Status (bool): Status, True if parameters successfully updated.
-        '''
+        """
         if not self.robotConnector.RobotModel.forceRemoteActiveFlag:
             self.init_force_remote(task_frame, f_type)
 
-        if self.robotConnector.RTDE.isRunning() and self.robotConnector.RobotModel.forceRemoteActiveFlag:
-            self.robotConnector.RTDE.setData('input_int_register_0', selection_vector[0])
-            self.robotConnector.RTDE.setData('input_int_register_1', selection_vector[1])
-            self.robotConnector.RTDE.setData('input_int_register_2', selection_vector[2])
-            self.robotConnector.RTDE.setData('input_int_register_3', selection_vector[3])
-            self.robotConnector.RTDE.setData('input_int_register_4', selection_vector[4])
-            self.robotConnector.RTDE.setData('input_int_register_5', selection_vector[5])
+        if (
+            self.robotConnector.RTDE.isRunning()
+            and self.robotConnector.RobotModel.forceRemoteActiveFlag
+        ):
+            self.robotConnector.RTDE.setData(
+                "input_int_register_0", selection_vector[0]
+            )
+            self.robotConnector.RTDE.setData(
+                "input_int_register_1", selection_vector[1]
+            )
+            self.robotConnector.RTDE.setData(
+                "input_int_register_2", selection_vector[2]
+            )
+            self.robotConnector.RTDE.setData(
+                "input_int_register_3", selection_vector[3]
+            )
+            self.robotConnector.RTDE.setData(
+                "input_int_register_4", selection_vector[4]
+            )
+            self.robotConnector.RTDE.setData(
+                "input_int_register_5", selection_vector[5]
+            )
 
-            self.robotConnector.RTDE.setData('input_double_register_0', wrench[0])
-            self.robotConnector.RTDE.setData('input_double_register_1', wrench[1])
-            self.robotConnector.RTDE.setData('input_double_register_2', wrench[2])
-            self.robotConnector.RTDE.setData('input_double_register_3', wrench[3])
-            self.robotConnector.RTDE.setData('input_double_register_4', wrench[4])
-            self.robotConnector.RTDE.setData('input_double_register_5', wrench[5])
+            self.robotConnector.RTDE.setData("input_double_register_0", wrench[0])
+            self.robotConnector.RTDE.setData("input_double_register_1", wrench[1])
+            self.robotConnector.RTDE.setData("input_double_register_2", wrench[2])
+            self.robotConnector.RTDE.setData("input_double_register_3", wrench[3])
+            self.robotConnector.RTDE.setData("input_double_register_4", wrench[4])
+            self.robotConnector.RTDE.setData("input_double_register_5", wrench[5])
 
-            self.robotConnector.RTDE.setData('input_double_register_6', limits[0])
-            self.robotConnector.RTDE.setData('input_double_register_7', limits[1])
-            self.robotConnector.RTDE.setData('input_double_register_8', limits[2])
-            self.robotConnector.RTDE.setData('input_double_register_9', limits[3])
-            self.robotConnector.RTDE.setData('input_double_register_10', limits[4])
-            self.robotConnector.RTDE.setData('input_double_register_11', limits[5])
+            self.robotConnector.RTDE.setData("input_double_register_6", limits[0])
+            self.robotConnector.RTDE.setData("input_double_register_7", limits[1])
+            self.robotConnector.RTDE.setData("input_double_register_8", limits[2])
+            self.robotConnector.RTDE.setData("input_double_register_9", limits[3])
+            self.robotConnector.RTDE.setData("input_double_register_10", limits[4])
+            self.robotConnector.RTDE.setData("input_double_register_11", limits[5])
 
-            self.robotConnector.RTDE.setData('input_double_register_12', task_frame[0])
-            self.robotConnector.RTDE.setData('input_double_register_13', task_frame[1])
-            self.robotConnector.RTDE.setData('input_double_register_14', task_frame[2])
-            self.robotConnector.RTDE.setData('input_double_register_15', task_frame[3])
-            self.robotConnector.RTDE.setData('input_double_register_16', task_frame[4])
-            self.robotConnector.RTDE.setData('input_double_register_17', task_frame[5])
+            self.robotConnector.RTDE.setData("input_double_register_12", task_frame[0])
+            self.robotConnector.RTDE.setData("input_double_register_13", task_frame[1])
+            self.robotConnector.RTDE.setData("input_double_register_14", task_frame[2])
+            self.robotConnector.RTDE.setData("input_double_register_15", task_frame[3])
+            self.robotConnector.RTDE.setData("input_double_register_16", task_frame[4])
+            self.robotConnector.RTDE.setData("input_double_register_17", task_frame[5])
 
-            self.robotConnector.RTDE.setData('input_int_register_6', f_type)
+            self.robotConnector.RTDE.setData("input_int_register_6", f_type)
 
             self.robotConnector.RTDE.sendData()
             return True
 
         else:
             if not self.robotConnector.RobotModel.forceRemoteActiveFlag:
-                self.__logger.warning('Force Remote not initialized')
+                self.__logger.warning("Force Remote not initialized")
             else:
-                self.__logger.warning('RTDE is not running')
+                self.__logger.warning("RTDE is not running")
 
             return False
 
     def init_realtime_control(self):
-        '''
+        """
         The realtime control mode enables continuous updates to a servoj program which is
         initialized by this function. This way no new program has to be sent to the robot
         and the robot can perform a smooth trajectory.
         Sending new servoj commands is done by utilizing RTDE of this library
-        
+
         Parameters:
         sample_time: time of one sample, standard is 8ms as this is the thread-cycle time of UR
-        
+
         Return Value:
         Status (bool): Status, True if successfully initialized.
-        '''
+        """
 
         if not self.robotConnector.RTDE.isRunning():
-            self.__logger.error('RTDE needs to be running to use realtime control')
+            self.__logger.error("RTDE needs to be running to use realtime control")
             return False
 
         # get current tcp pos
         init_pose = self.get_actual_tcp_pose()
 
-        self.robotConnector.RTDE.setData('input_double_register_0', init_pose[0])
-        self.robotConnector.RTDE.setData('input_double_register_1', init_pose[1])
-        self.robotConnector.RTDE.setData('input_double_register_2', init_pose[2])
-        self.robotConnector.RTDE.setData('input_double_register_3', init_pose[3])
-        self.robotConnector.RTDE.setData('input_double_register_4', init_pose[4])
-        self.robotConnector.RTDE.setData('input_double_register_5', init_pose[5])
+        self.robotConnector.RTDE.setData("input_double_register_0", init_pose[0])
+        self.robotConnector.RTDE.setData("input_double_register_1", init_pose[1])
+        self.robotConnector.RTDE.setData("input_double_register_2", init_pose[2])
+        self.robotConnector.RTDE.setData("input_double_register_3", init_pose[3])
+        self.robotConnector.RTDE.setData("input_double_register_4", init_pose[4])
+        self.robotConnector.RTDE.setData("input_double_register_5", init_pose[5])
 
         self.robotConnector.RTDE.sendData()
 
-        prog = '''def realtime_control():
+        prog = """def realtime_control():
     
     
     while (True):
@@ -382,7 +411,7 @@ end
         sync()
     end
 end
-'''
+"""
         # , t=0.1
 
         self.robotConnector.RealTimeClient.SendProgram(prog.format(**locals()))
@@ -402,33 +431,39 @@ end
             self.init_realtime_control()
             print("Realtime control initialized!")
 
-        if self.robotConnector.RTDE.isRunning() and self.robotConnector.RobotModel.realtimeControlFlag:
-            self.robotConnector.RTDE.setData('input_double_register_0', pose[0])
-            self.robotConnector.RTDE.setData('input_double_register_1', pose[1])
-            self.robotConnector.RTDE.setData('input_double_register_2', pose[2])
-            self.robotConnector.RTDE.setData('input_double_register_3', pose[3])
-            self.robotConnector.RTDE.setData('input_double_register_4', pose[4])
-            self.robotConnector.RTDE.setData('input_double_register_5', pose[5])
+        if (
+            self.robotConnector.RTDE.isRunning()
+            and self.robotConnector.RobotModel.realtimeControlFlag
+        ):
+            self.robotConnector.RTDE.setData("input_double_register_0", pose[0])
+            self.robotConnector.RTDE.setData("input_double_register_1", pose[1])
+            self.robotConnector.RTDE.setData("input_double_register_2", pose[2])
+            self.robotConnector.RTDE.setData("input_double_register_3", pose[3])
+            self.robotConnector.RTDE.setData("input_double_register_4", pose[4])
+            self.robotConnector.RTDE.setData("input_double_register_5", pose[5])
             self.robotConnector.RTDE.sendData()
             return True
         else:
             if not self.robotConnector.RobotModel.realtimeControlFlag:
-                self.__logger.warning('Realtime Remote Control not initialized')
+                self.__logger.warning("Realtime Remote Control not initialized")
             else:
-                self.__logger.warning('RTDE is not running')
+                self.__logger.warning("RTDE is not running")
 
             return False
 
-    def move_force_2stop(self, start_tolerance=0.01,
-                         stop_tolerance=0.01,
-                         wrench_gain=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-                         timeout=10,
-                         task_frame=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                         selection_vector=[0, 0, 0, 0, 0, 0],
-                         wrench=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                         limits=[0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
-                         f_type=2):
-        '''
+    def move_force_2stop(
+        self,
+        start_tolerance=0.01,
+        stop_tolerance=0.01,
+        wrench_gain=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+        timeout=10,
+        task_frame=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        selection_vector=[0, 0, 0, 0, 0, 0],
+        wrench=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        limits=[0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
+        f_type=2,
+    ):
+        """
         Move force will set the robot in force mode (see force_mode) and move the TCP until it meets an object making the TCP stand still.
 
         Parameters:
@@ -472,7 +507,7 @@ end
         Return Value:
         Status (bool): Status, True if signal set successfully.
 
-        '''
+        """
 
         timeoutcnt = 125 * timeout
         wrench = np.array(wrench)
@@ -480,7 +515,7 @@ end
         self.set_force_remote(task_frame, selection_vector, wrench, limits, f_type)
 
         dist = np.array(range(60), float)
-        dist.fill(0.)
+        dist.fill(0.0)
         cnt = 0
         old_pose = self.get_actual_tcp_pose() * np.array(selection_vector)
         while np.sum(dist) < start_tolerance and cnt < timeoutcnt:
@@ -501,27 +536,31 @@ end
                 old_pose = new_pose
                 cnt += 1
 
-        self.set_force_remote(task_frame, selection_vector, [0, 0, 0, 0, 0, 0], limits, f_type)
+        self.set_force_remote(
+            task_frame, selection_vector, [0, 0, 0, 0, 0, 0], limits, f_type
+        )
         self.end_force_mode()
         if cnt >= timeoutcnt:
             return False
         else:
             return True
 
-    def move_force(self, pose=None,
-                   a=1.2,
-                   v=0.25,
-                   t=0,
-                   r=0.0,
-                   movetype='l',
-                   task_frame=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                   selection_vector=[0, 0, 0, 0, 0, 0],
-                   wrench=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                   limits=[0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
-                   f_type=2,
-                   wait=True,
-                   q=None):
-
+    def move_force(
+        self,
+        pose=None,
+        a=1.2,
+        v=0.25,
+        t=0,
+        r=0.0,
+        movetype="l",
+        task_frame=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        selection_vector=[0, 0, 0, 0, 0, 0],
+        wrench=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        limits=[0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
+        f_type=2,
+        wait=True,
+        q=None,
+    ):
         """
         Concatenate several move commands and applies a blending radius
         pose or q is a list of pose or joint-pose, and apply a force in a direction
@@ -581,15 +620,15 @@ end
         task_frame = np.array(task_frame)
         if np.size(task_frame.shape) == 2:
             prefix = "p"
-            t_val = ''
+            t_val = ""
             if pose is None:
                 prefix = ""
                 pose = q
             pose = np.array(pose)
-            if movetype == 'j' or movetype == 'l':
-                tval = 't={t},'.format(**locals())
+            if movetype == "j" or movetype == "l":
+                tval = "t={t},".format(**locals())
 
-            prg = 'def move_force():\n'
+            prg = "def move_force():\n"
             for idx in range(np.size(pose, 0)):
                 posex = np.round(pose[idx], 4)
                 posex = posex.tolist()
@@ -597,91 +636,101 @@ end
                 task_framex = task_framex.tolist()
                 if (np.size(pose, 0) - 1) == idx:
                     r = 0
-                prg += '    force_mode(p{task_framex}, {selection_vector}, {wrench}, {f_type}, {limits})\n'.format(
-                    **locals())
-                prg += '    move{movetype}({prefix}{posex}, a={a}, v={v}, {t_val} r={r})\n'.format(**locals())
+                prg += "    force_mode(p{task_framex}, {selection_vector}, {wrench}, {f_type}, {limits})\n".format(
+                    **locals()
+                )
+                prg += "    move{movetype}({prefix}{posex}, a={a}, v={v}, {t_val} r={r})\n".format(
+                    **locals()
+                )
 
-            prg += '    stopl({a})\n'.format(**locals())
-            prg += '    end_force_mode()\nend\n'
+            prg += "    stopl({a})\n".format(**locals())
+            prg += "    end_force_mode()\nend\n"
 
         else:
-            prg = '''def move_force():
+            prg = """def move_force():
     force_mode(p{task_frame}, {selection_vector}, {wrench}, {f_type}, {limits})
 {movestr}
     end_force_mode()
 end
-'''
+"""
             task_frame = task_frame.tolist()
             movestr = self._move(movetype, pose, a, v, t, r, wait, q)
 
         self.robotConnector.RealTimeClient.SendProgram(prg.format(**locals()))
-        if (wait):
+        if wait:
             self.waitRobotIdleOrStopFlag()
 
     def movej_waypoints(self, waypoints, wait=True):
-        '''
+        """
         Movej along multiple waypoints. By configuring a blend radius continuous movements can be enabled.
 
         Parameters:
         waypoints: List waypoint dictionaries {pose: [6d], a, v, t, r}
-        '''
+        """
 
-        prg = '''def move_waypoints():
+        prg = """def move_waypoints():
 {exec_str}
 end
-'''
+"""
         exec_str = ""
         for waypoint in waypoints:
-            movestr = self._move(movetype='j', **waypoint)
+            movestr = self._move(movetype="j", **waypoint)
             exec_str += movestr + "\n"
 
         programString = prg.format(**locals())
 
         self.robotConnector.RealTimeClient.SendProgram(programString)
-        if (wait):
+        if wait:
             self.waitRobotIdleOrStopFlag()
 
     def movel_waypoints(self, waypoints, wait=True):
-        '''
+        """
         Movel along multiple waypoints. By configuring a blend radius continuous movements can be enabled.
 
         Parameters:
         waypoints: List waypoint dictionaries {pose: [6d], a, v, t, r}
-        '''
+        """
 
-        prg = '''def move_waypoints():
+        prg = """def move_waypoints():
 {exec_str}
 end
-'''
+"""
         exec_str = ""
         for waypoint in waypoints:
-            movestr = self._move(movetype='l', **waypoint)
+            movestr = self._move(movetype="l", **waypoint)
             exec_str += movestr + "\n"
 
         programString = prg.format(**locals())
 
         self.robotConnector.RealTimeClient.SendProgram(programString)
-        if (wait):
+        if wait:
             self.waitRobotIdleOrStopFlag()
 
     def print_actual_tcp_pose(self):
-        '''
+        """
         print the actual TCP pose
-        '''
+        """
         self.print_pose(self.get_actual_tcp_pose())
 
     def print_actual_joint_positions(self):
-        '''
+        """
         print the actual TCP pose
-        '''
+        """
         self.print_pose(q=self.get_actual_joint_positions())
 
     def print_pose(self, pose=None, q=None):
-        '''
+        """
         print a pose
-        '''
+        """
         if q is None:
-            print('Robot Pose: [{: 06.4f}, {: 06.4f}, {: 06.4f},   {: 06.4f}, {: 06.4f}, {: 06.4f}]'.format(*pose))
+            print(
+                "Robot Pose: [{: 06.4f}, {: 06.4f}, {: 06.4f},   {: 06.4f}, {: 06.4f}, {: 06.4f}]".format(
+                    *pose
+                )
+            )
         else:
-            print('Robot joint positions: [{: 06.4f}, {: 06.4f}, {: 06.4f},   {: 06.4f}, {: 06.4f}, {: 06.4f}]'.format(
-                *q))
+            print(
+                "Robot joint positions: [{: 06.4f}, {: 06.4f}, {: 06.4f},   {: 06.4f}, {: 06.4f}, {: 06.4f}]".format(
+                    *q
+                )
+            )

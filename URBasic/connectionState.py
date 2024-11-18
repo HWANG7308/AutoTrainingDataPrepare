@@ -1,4 +1,4 @@
-'''
+"""
 Python 3.x library to control an UR robot through its TCP/IP interfaces
 Copyright (C) 2017  Martin Huus Bjerge, Rope Robotics ApS, Denmark
 
@@ -20,11 +20,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 Except as contained in this notice, the name of "Rope Robotics ApS" shall not be used 
 in advertising or otherwise to promote the sale, use or other dealings in this Software 
 without prior written authorization from "Rope Robotics ApS".
-'''
+"""
 
 __author__ = "Martin Huus Bjerge"
 __copyright__ = "Copyright 2017, Rope Robotics ApS, Denmark"
 __license__ = "MIT License"
+
 
 class ConnectionState:
     ERROR = 0
