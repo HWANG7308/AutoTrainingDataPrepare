@@ -29,7 +29,7 @@ class PoseGenerator:
 
         print(
             "Generating the end-effector pose with theta: {} and phi: {}".format(
-                theta, phi
+                theta, -phi
             )
         )
 
