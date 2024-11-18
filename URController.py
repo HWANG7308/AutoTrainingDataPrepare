@@ -55,7 +55,7 @@ class UR5RobotController:
             host=self.robot_ip, robotModel=self.robot_model
         )
         self.robot.reset_error()
-        self.robot.movej(q=self.init_position, a=self.acc, v=self.vel)
+        self.robot.movej(q=self.home_position, a=self.acc, v=self.vel)
 
         self.robot.waitRobotIdleOrStopFlag()
 
