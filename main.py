@@ -39,10 +39,20 @@ def acquire_new_data_from_object():
     DC = D435()
 
     # Generate the end-effector positions to capture object images from various defined views
-    robot_poses = PoseGenerator(T_rob2obj, T_end2cam).generate_position_example(
-        theta=-math.pi / 4, phi=-math.pi / 4
-    )  # for test only
     # robot_poses = PoseGenerator(T_rob2obj, T_end2cam).generate_positions()
+
+    # for test only
+    # robot_poses = PoseGenerator(T_rob2obj, T_end2cam).generate_position_example(
+    #     theta=-math.pi / 4, phi=-math.pi / 4
+    # )
+    pose_top = PoseGenerator(T_rob2obj, T_end2cam).generate_position_example()
+    pose_mid = PoseGenerator(T_rob2obj, T_end2cam).generate_position_example(
+        phi=-math.pi / 4
+    )
+    pose_front = PoseGenerator(T_rob2obj, T_end2cam).generate_position_example(
+        phi=-math.pi / 2
+    )
+    robot_poses = pose_top + pose_mid + pose_front
 
     data_dir = os.path.join(root, "results/acquired_data")
     if not os.path.exists(data_dir):
@@ -137,7 +147,7 @@ def acquire_new_data_from_object():
 
 
 def create_labels_2dbbox():
-    color_img_path = "results/acquired_data/test/color_000000.png"
+    color_img_path = "results/acquired_data/test/color_000002.png"
     depth_img_path = None
 
     # Annotate 2D bounding boxes
@@ -147,7 +157,7 @@ def create_labels_2dbbox():
 
 
 def create_labels_6dpose():
-    color_img_path = "results/acquired_data/test/color_000000.png"
+    color_img_path = "results/acquired_data/test/color_000002.png"
     depth_img_path = None
     meta_path_ = os.path.join(
         os.path.dirname(color_img_path),
@@ -161,24 +171,27 @@ def create_labels_6dpose():
 
 
 def create_labels_3dbbox():
-    color_img_path = "results/acquired_data/test/color_000000.png"
+    top_color_img_path = "results/acquired_data/test_bkp/color_000000.png"
+    front_color_img_path = "results/acquired_data/test/color_000002.png"
     depth_img_path = None
+    test_img_path = "results/acquired_data/test_old/color_000000.png"
     meta_path_ = os.path.join(
-        os.path.dirname(color_img_path),
-        os.path.basename(color_img_path).replace("color", "meta"),
+        os.path.dirname(test_img_path),
+        os.path.basename(test_img_path).replace("color", "meta"),
     )
     meta_path = os.path.splitext(meta_path_)[0] + ".json"
 
     # Annotate 3D bounding boxes
-    DA_2DBBox_top = Annotator2DBBox(color_img_path, depth_img_path)
+    DA_2DBBox_top = Annotator2DBBox(top_color_img_path, depth_img_path)
     DA_2DBBox_top.annotate()
-    DA_2DBBox_front = Annotator2DBBox(color_img_path, depth_img_path)
+    DA_2DBBox_front = Annotator2DBBox(front_color_img_path, depth_img_path)
     DA_2DBBox_front.annotate()
     annotation_top = DA_2DBBox_top.annotation
     annotation_front = DA_2DBBox_front.annotation
-    DA_3dbbox = Annotator3DBBox(color_img_path, depth_img_path, meta_path)
+
+    DA_3dbbox = Annotator3DBBox(test_img_path, depth_img_path, meta_path)
     oriented_3dbbox = DA_3dbbox.reconstruct_oriented_3dbbox(
-        annotation_top, annotation_front
+        annotation_front, annotation_top
     )
     DA_3dbbox.visualize_3dbbox(oriented_3dbbox)
 
@@ -211,19 +224,70 @@ def hand_eye_calibration():
     raise NotImplemented
 
 
+def test_robot_position():
+    """
+    Test the generated robot positions
+    """
+
+    # create a UR5
+    UR5 = UR5RobotController(ROBOT_IP)
+
+    # Generate the end-effector positions to capture object images from various defined views
+    # robot_poses = PoseGenerator(T_rob2obj, T_end2cam).generate_positions()
+
+    # robot_poses = PoseGenerator(T_rob2obj, T_end2cam).generate_position_example(
+    #     theta=-math.pi / 4, phi=-math.pi / 4
+    # )
+    pose_top = PoseGenerator(T_rob2obj, T_end2cam).generate_position_example()
+    pose_mid = PoseGenerator(T_rob2obj, T_end2cam).generate_position_example(
+        phi=-math.pi / 4
+    )
+    pose_front = PoseGenerator(T_rob2obj, T_end2cam).generate_position_example(
+        phi=-math.pi / 2
+    )
+    robot_poses = pose_top  # + pose_mid + pose_front
+
+    try:
+        for n, pose in enumerate(robot_poses):
+            if n > 30:
+                break
+
+            next_pose = pose.get("next pose")
+
+            print("Moving the robot to {}...".format(next_pose))
+            UR5.move_robot(next_pose)
+            print("Robot moved to position!")
+
+    except KeyboardInterrupt:
+        print("Closing robot connection")
+        # Remember to always close the robot connection, otherwise it is not possible to reconnect
+        UR5.robot.close()
+
+    except:
+        print("Closing robot connection")
+        # Remember to always close the robot connection, otherwise it is not possible to reconnect
+        UR5.robot.close()
+
+    finally:
+        print("Closing robot connection")
+        # Remember to always close the robot connection, otherwise it is not possible to reconnect
+        UR5.robot.close()
+
+
 def main():
     s = {
         "Acquire New Data from Object": acquire_new_data_from_object,
         "Create Labels (2D BBox)": create_labels_2dbbox,
         "Create Labels (6D Pose)": create_labels_6dpose,
         "Create Labels (3D BBox)": create_labels_3dbbox,
-        "Create Labels (Image Segmentation)": create_labels_img_seg,
-        "Train Object Detection Model": train_object_detection,
-        "Train Pose Estimation Model": train_pose_estimation,
-        "Run Live Prediction (Object Detection)": run_live_prediction_obj_detect,
-        "Run Live Prediction (Pose Estimation)": run_live_prediction_pose_estimate,
-        "Visualize": visualize,
-        "Hand-Eye Calibration": hand_eye_calibration,
+        # "Create Labels (Image Segmentation)": create_labels_img_seg,
+        # "Train Object Detection Model": train_object_detection,
+        # "Train Pose Estimation Model": train_pose_estimation,
+        # "Run Live Prediction (Object Detection)": run_live_prediction_obj_detect,
+        # "Run Live Prediction (Pose Estimation)": run_live_prediction_pose_estimate,
+        # "Visualize": visualize,
+        # "Hand-Eye Calibration": hand_eye_calibration,
+        "Test Robot Position": test_robot_position,
     }
 
     while True:
@@ -240,8 +304,8 @@ def main():
 if __name__ == "__main__":
     root = str(Path(__file__).resolve().parent)
 
-    ROBOT_IP = "192.168.2.144"  # URSim
-    # ROBOT_IP = "192.168.2.196"  # UR5
+    # ROBOT_IP = "192.168.2.144"  # URSim
+    ROBOT_IP = "192.168.2.196"  # UR5
 
     # The configurations of the robot system (the object position regarding the robot, the camera position regarding the end effector)
     # The transformation from the robot base to the object (static, UR5)
