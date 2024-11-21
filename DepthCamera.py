@@ -12,7 +12,6 @@ class D435:
     """
     Intel RealSense depth camera D435
     """
-
     def __init__(
         self,
         fps=30,
@@ -27,18 +26,15 @@ class D435:
         self.depth_width = depth_width
         self.fps = fps
 
-        self.pipe = None
-        self.config = None
-        self.profile = None
-        self.align = None
-        self.colorizer = None
-        self.depth_sensor = None
-        self.init_pipeline()
-        self.repairing = False
-
-    def init_pipeline(self):
         self.pipe = rs.pipeline()
         self.config = rs.config()
+        self.align = rs.align(rs.stream.color)
+        self.colorizer = rs.colorizer()
+        self.repairing = False
+
+        self.init_pipeline()
+
+    def init_pipeline(self):
         self.config.enable_stream(
             rs.stream.depth,
             self.depth_width,
@@ -54,10 +50,7 @@ class D435:
             self.fps,
         )
         self.profile = self.pipe.start(self.config)
-        self.align = rs.align(rs.stream.color)
-        self.colorizer = rs.colorizer()
         self.depth_sensor = self.profile.get_device().first_depth_sensor()
-
         self.color_sensor = self.profile.get_device().query_sensors()[1]
         self.color_sensor.set_option(rs.option.enable_auto_white_balance, False)
         self.color_sensor.set_option(rs.option.enable_auto_exposure, False)
@@ -73,23 +66,17 @@ class D435:
         show_added=False,
     ):
         while True:
-
-            return_depth_colorized = False
-            if show_depth_color or show_added:
-                return_depth_colorized = True
+            return_depth_colorized = show_depth_color or show_added
             out = self.get_frames(return_depth_colorized=return_depth_colorized)
             color = out.get("color")
             depth = out.get("depth")
 
             if show_color:
                 show = color
-
             if show_depth:
                 show = np.array(depth / 2000 * 255, dtype=np.uint8)
-
             if show_depth_color:
                 show = out.get("depth_colorized")
-
             if show_added:
                 depth_colorized = out.get("depth_colorized")
                 show = cv2.addWeighted(color, 0.7, depth_colorized, 0.3, 0)
@@ -98,47 +85,19 @@ class D435:
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 break
 
-            time.sleep(1 / fps)
+            time.sleep(max(0, 1 / fps - (time.time() % (1 / fps))))
 
         self.pipe.stop()
 
     def get_frames(
-        self,
-        return_intrinsics=False,
-        return_depth_colorized=False,
-        with_repair=True,
-        return_first_try=False,
-        return_first=False,
-        secure_image=False,
-        check_state=False,
+        self, return_intrinsics=False, return_depth_colorized=False, with_repair=True
     ):
-
-        first_try = True
         while True:
-
-            if secure_image:
-                # check if the current state is not broken and only a old image is in the stack
-                t = time.time() + 1
-                while time.time() < t:
-                    success, frames = self.pipe.try_wait_for_frames()
-                    if not success:
-                        break
-            else:
-                success, frames = self.pipe.try_wait_for_frames()
-
+            success, frames = self.pipe.try_wait_for_frames()
             if success:
                 try:
-                    # checks if the next images are ready
-                    if check_state:
-                        check = True
-                        for _ in range(10):
-                            check, _ = self.pipe.try_wait_for_frames()
-                            if not check:
-                                return None, False
-
                     frames = self.align.process(frames)
                     out = {"frames": frames}
-
                     if return_intrinsics:
                         out["color_intr"] = self.get_color_intrinsics()
                         out["depth_intr"] = self.get_depth_intrinsics()
@@ -158,36 +117,20 @@ class D435:
                     if with_repair:
                         self.repairing = False
 
-                    if return_first_try:
-                        return out, first_try
-                    else:
-                        return out
+                    return out
 
-                except:
-                    success = False
+                except Exception as e:
+                    print(f"Error processing frames: {e}")
 
-            if not success:
-                print("failed to get images")
-                first_try = False
-
-                if return_first:
-                    return None, first_try
-
-                if with_repair:
-                    self.repairing = True
-                    while True:
-                        try:
-                            self.init_pipeline()
-                            break
-                        except:
-                            print("init pipelie failed, trying again")
-                            continue
-
-                else:
-                    while self.repairing:
+            if with_repair:
+                self.repairing = True
+                while True:
+                    try:
+                        self.init_pipeline()
+                        break
+                    except Exception as e:
+                        print(f"Pipeline initialization failed: {e}")
                         time.sleep(1)
-
-                time.sleep(1)
 
     def get_color_intrinsics(self):
         color_intr_ = (
@@ -195,7 +138,7 @@ class D435:
             .as_video_stream_profile()
             .get_intrinsics()
         )
-        color_intr = {
+        return {
             "width": color_intr_.width,
             "height": color_intr_.height,
             "ppx": color_intr_.ppx,
@@ -204,8 +147,6 @@ class D435:
             "fy": color_intr_.fy,
             "coeffs": color_intr_.coeffs,
         }
-
-        return color_intr
 
     def get_depth_intrinsics(self):
         return (
@@ -219,10 +160,8 @@ class D435:
 
 
 if __name__ == "__main__":
-    print("create depth cam")
-    # DC = D435()
     DC = D435(fps=15, color_width=1280, color_height=720)
-    intr = DC.get_intrinsics()
+    intr = DC.get_color_intrinsics()
     print(intr)
     print(DC.get_depth_scale() * 1000)
     DC.stream(show_color=True, show_added=True, show_depth=True)

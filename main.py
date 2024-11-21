@@ -92,9 +92,6 @@ def acquire_new_data_from_object():
             out, success = DC.get_frames(
                 return_intrinsics=True,
                 with_repair=False,
-                return_first_try=True,
-                return_first=True,
-                check_state=True,
             )
             if not success:
                 print("Failed to get data at this position!")

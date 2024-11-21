@@ -17,10 +17,14 @@ class Annotator2DBBox:
     def __init__(self, color_img_path, depth_img_path):
         self.color_img_path = color_img_path
         self.ori_color = cv2.imread(self.color_img_path)
+        if self.ori_color is None:
+            raise FileNotFoundError(f"Color image not found at {self.color_img_path}")
         self.rgb_img = cv2.cvtColor(self.ori_color, cv2.COLOR_BGR2RGB)
 
         self.depth_img_path = depth_img_path
         # self.ori_depth = cv2.imread(self.depth_img_path)
+        # if self.ori_depth is None:
+        #     raise FileNotFoundError(f"Depth image not found at {self.depth_img_path}")
 
         self.annotation = {}
 
@@ -50,24 +54,21 @@ class Annotator2DBBox:
         rgba_image = cv2.cvtColor(colors_image, cv2.COLOR_RGB2RGBA)
         rgba_image[np.all(rgba_image[:, :, :3] == [0, 0, 0], axis=-1)] = [0, 0, 0, 0]
 
-        colors_result = rgba_image.copy()  # [:, :, :3].astype(np.uint8)
-
         if show_result:
-            cv2.imshow(
-                "Result of background removal based on chroma key", colors_result
-            )
+            cv2.imshow("Result of background removal based on chroma key", rgba_image)
             cv2.waitKey(0)
             cv2.destroyAllWindows()
             # cv2.imwrite(
-            #     "Result of background removal based on chroma key.png", colors_result
+            #     "Result of background removal based on chroma key.png", rgba_image
             # )
 
-        return colors_result
+        return rgba_image
 
-    """
-    def remove_bkg_depth_value(
-        self, show_result=False
-    ):  # TODO fix this background removal based on depth value
+    def remove_bkg_depth_value(self, show_result=False):
+        """
+        Remove background based on depth value (currently not implemented)
+        TODO fix this background removal based on depth value
+        """
         depth_value = 300
         DEPTH_RANGE = 310
 
@@ -87,16 +88,19 @@ class Annotator2DBBox:
             255,
             0,
         ]
-        depth_result = rgba_image.copy()  # [:, :, :3].astype(np.uint8)
-    """
+
+        if show_result:
+            cv2.imshow("Result of background removal based on depth value", rgba_image)
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
+
+        return rgba_image
 
     def annotate(self, show_result=False):
-        """draw 2D BBox (rectangle) around the object given the result of chroma_key(raw_rgb_img)"""
-
+        """Draw 2D BBox (rectangle) around the object given the result of chroma_key(raw_rgb_img)"""
         image = self.remove_bkg_chroma_key()
 
         _, _, _, alpha = cv2.split(image)
-
         contours, _ = cv2.findContours(
             alpha, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
         )
@@ -106,7 +110,7 @@ class Annotator2DBBox:
         for contour in contours:
             x, y, w, h = cv2.boundingRect(contour)
 
-            # discard the contour that is too small (potentially noise)
+            # Discard the contour that is too small (potentially noise)
             if w * h < 500:
                 continue
 
@@ -129,7 +133,8 @@ class Annotator2DBBox:
 
             annotations.append(annotation)
 
-        self.annotation = annotations[0]
+        if annotations:
+            self.annotation = annotations[0]
 
         if show_result:
             self.visualize_2dbbox()
@@ -137,32 +142,36 @@ class Annotator2DBBox:
         return annotations
 
     def visualize_2dbbox(self):
-        img = self.rgb_img
+        img = self.rgb_img.copy()
         annotation = self.annotation
 
-        shape = annotation.get("shapes")[0]
-        [x_min, y_min] = shape.get("points")[0]
-        [x_max, y_max] = shape.get("points")[1]
+        if annotation:
+            shape = annotation.get("shapes")[0]
+            [x_min, y_min] = shape.get("points")[0]
+            [x_max, y_max] = shape.get("points")[1]
 
-        cv2.rectangle(img, (x_min, y_min), (x_max, y_max), (255, 0, 0), 2)
-        cv2.imshow("2D BBox annotation", img)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+            cv2.rectangle(img, (x_min, y_min), (x_max, y_max), (255, 0, 0), 2)
+            cv2.imshow("2D BBox annotation", img)
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
 
-        # cv2.imwrite("2D BBox annotation.png", img)
+            # cv2.imwrite("2D BBox annotation.png", img)
 
 
 class Annotator6DPose:  # TODO fix this annotator
     def __init__(self, color_img_path, depth_img_path, meta_path):
-
         self.color_img_path = color_img_path
         self.depth_img_path = depth_img_path
         self.meta_path = meta_path
 
         self.ori_color = cv2.imread(self.color_img_path)
+        if self.ori_color is None:
+            raise FileNotFoundError(f"Color image not found at {self.color_img_path}")
         self.rgb_img = cv2.cvtColor(self.ori_color, cv2.COLOR_BGR2RGB)
 
         # self.ori_depth = cv2.imread(self.depth_img_path)
+        # if self.ori_depth is None:
+        #     raise FileNotFoundError(f"Depth image not found at {self.depth_img_path}")
 
         with open(self.meta_path, "r") as f:
             self.meta = json.load(f)
@@ -192,9 +201,10 @@ class Annotator6DPose:  # TODO fix this annotator
         self.annotation = {}
 
     def annotate(self, show_result=False):
-        """generate the 6D pose annotation given meta data"""
-
-        # TODO fix the annotation format here
+        """
+        Generate the 6D pose annotation given meta data
+        TODO: fix the annotation format
+        """
         annotation = {
             "transformation_matrix": self.transformation_matrix.tolist(),
             "rotation": self.rotation_matrix.tolist(),
@@ -212,12 +222,8 @@ class Annotator6DPose:  # TODO fix this annotator
         return annotation
 
     def visualize_6dpose(self):
-        """
-        draw xyz-axis
-        """
-
-        color = self.ori_color
-        # color = cv2.resize(color, (640, 480))
+        """Draw xyz-axis"""
+        color = self.ori_color.copy()
 
         vis = self.draw_xyz_axis(
             color,
@@ -235,8 +241,10 @@ class Annotator6DPose:  # TODO fix this annotator
         # cv2.imwrite("6D pose annotation.png", vis)
 
     def project_3d_to_2d(self, pt, K, ob_in_cam):
-        """From FoundationPose: https://github.com/NVlabs/FoundationPose"""
-
+        """
+        Project 3D point to 2D
+        From FoundationPose: https://github.com/NVlabs/FoundationPose
+        """
         pt = pt.reshape(4, 1)
         projected = K @ ((ob_in_cam @ pt)[:3, :])
         projected = projected.reshape(-1)
@@ -253,9 +261,9 @@ class Annotator6DPose:  # TODO fix this annotator
         transparency=0,
         is_input_rgb=False,
     ):
-        """From FoundationPose: https://github.com/NVlabs/FoundationPose"""
-
         """
+        Draw xyz-axis on the image
+        From FoundationPose: https://github.com/NVlabs/FoundationPose
         @color_img: BGR
         """
         if is_input_rgb:
@@ -318,15 +326,18 @@ class Annotator6DPose:  # TODO fix this annotator
 
 class Annotator3DBBox:  # TODO fix this annotator
     def __init__(self, color_img_path, depth_img_path, meta_path):
-
         self.color_img_path = color_img_path
         self.depth_img_path = depth_img_path
         self.meta_path = meta_path
 
         self.ori_color = cv2.imread(self.color_img_path)
+        if self.ori_color is None:
+            raise FileNotFoundError(f"Color image not found at {self.color_img_path}")
         self.rgb_img = cv2.cvtColor(self.ori_color, cv2.COLOR_BGR2RGB)
 
         # self.ori_depth = cv2.imread(self.depth_img_path)
+        # if self.ori_depth is None:
+        #     raise FileNotFoundError(f"Depth image not found at {self.depth_img_path}")
 
         with open(self.meta_path, "r") as f:
             self.meta = json.load(f)
@@ -352,8 +363,7 @@ class Annotator3DBBox:  # TODO fix this annotator
         self.annotation = {}
 
     def reconstruct_oriented_3dbbox(self, annotation_front, annotation_top):
-        """generate 3D BBox (cuboid) given the 2D BBoxes of the front and top view"""
-
+        """Generate 3D BBox (cuboid) given the 2D BBoxes of the front and top view"""
         bbox_front = annotation_front.get("shapes")[0].get("points")
         bbox_top = annotation_top.get("shapes")[0].get("points")
 
@@ -361,9 +371,9 @@ class Annotator3DBBox:  # TODO fix this annotator
         width = bbox_top[1][1] - bbox_top[0][1]
         height = bbox_front[1][1] - bbox_front[0][1]
 
-        # convert from the pixel space to real-world space
+        # Convert from the pixel space to real-world space
         img_height, img_width, _ = self.ori_color.shape
-        dist_cam2obj = 0.3  # the distance between the camera and the object, i.e., radius in PoseGenerator
+        dist_cam2obj = 0.3  # The distance between the camera and the object, i.e., radius in PoseGenerator
 
         length = length / img_width * dist_cam2obj
         width = width / img_height * dist_cam2obj
@@ -378,15 +388,11 @@ class Annotator3DBBox:  # TODO fix this annotator
         return oriented_3dbbox
 
     def annotate(self):
-        raise NotImplemented
+        raise NotImplementedError("The annotate method is not implemented yet.")
 
     def visualize_3dbbox(self, oriented_3dbbox):
-        """
-        visualize 3d bounding box
-        """
-
-        color = self.ori_color
-        # color = cv2.resize(color, (640, 480))
+        """Visualize 3D bounding box"""
+        color = self.ori_color.copy()
 
         vis = self.draw_posed_3d_box(
             img=color,
@@ -399,10 +405,12 @@ class Annotator3DBBox:  # TODO fix this annotator
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
-        cv2.imwrite("3D bounding box.png", vis)
+        # cv2.imwrite("3D bounding box.png", vis)
 
     def to_homo(self, pts):
         """
+        Convert points to homogeneous coordinates
+        From FoundationPose: https://github.com/NVlabs/FoundationPose
         @pts: (N,3 or 2) will homogeneliaze the last dimension
         """
         assert len(pts.shape) == 2, f"pts.shape: {pts.shape}"
@@ -412,7 +420,10 @@ class Annotator3DBBox:  # TODO fix this annotator
     def draw_posed_3d_box(
         self, img, ob_in_cam, bbox, K=np.eye(3), line_color=(0, 255, 255), linewidth=2
     ):
-        """Revised from 6pack dataset/inference_dataset_nocs.py::projection
+        """
+        Draw 3D bounding box on the image
+        From FoundationPose: https://github.com/NVlabs/FoundationPose
+        Revised from 6pack dataset/inference_dataset_nocs.py::projection
         @bbox: (2,3) min/max
         @line_color: BGR
         """
@@ -460,31 +471,33 @@ class Annotator3DBBox:  # TODO fix this annotator
         return img
 
 
-class Annotator_img_seg:  # TODO fix this annotator
+class AnnotatorImgSeg:  # TODO fix this annotator
     def __init__(self):
-        pass
+        self.annotation = {}
 
     def annotate(self):
-        """transform the chroma-key processed image to segmentation annotation (optional)"""
-        raise NotImplemented
+        """Transform the chroma-key processed image to segmentation annotation (optional)"""
+        raise NotImplementedError("The annotate method is not implemented yet.")
 
 
 def test_2DBBox():
-    DA = Annotator2DBBox(color_img_path, depth_img_path)
-    DA.remove_bkg_chroma_key(show_result=True)
-    DA.annotate(show_result=True)
+    annotator = Annotator2DBBox(color_img_path, depth_img_path)
+    _ = annotator.remove_bkg_chroma_key(show_result=True)
+    annotations = annotator.annotate(show_result=True)
+    print(annotations)
 
 
 def test_6DPose():
-    DA = Annotator6DPose(color_img_path, depth_img_path, meta_path)
-    DA.annotate(show_result=True)
+    annotator = Annotator6DPose(color_img_path, depth_img_path, meta_path)
+    annotation = annotator.annotate(show_result=True)
+    print(annotation)
 
 
 def test_3DBBox():
     DA_2DBBox_top = Annotator2DBBox(color_img_path, depth_img_path)
-    DA_2DBBox_top.annotate()
+    _ = DA_2DBBox_top.annotate()
     DA_2DBBox_front = Annotator2DBBox(color_img_path, depth_img_path)
-    DA_2DBBox_front.annotate()
+    _ = DA_2DBBox_front.annotate()
     annotation_top = DA_2DBBox_top.annotation
     annotation_front = DA_2DBBox_front.annotation
 

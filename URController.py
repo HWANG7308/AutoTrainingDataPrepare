@@ -12,7 +12,6 @@ class UR5RobotController:
         acceleration: robot acceleration value
         velocity: robot speed value
         """
-
         self.robot_model = URBasic.robotModel.RobotModel()
         self.robot = None
 
@@ -27,7 +26,7 @@ class UR5RobotController:
             math.radians(-90),
             math.radians(0),
             math.radians(0),
-        ]  # the joint values in degree when the robot is at home position
+        ]
 
         self.init_position = [
             math.radians(0),
@@ -36,7 +35,7 @@ class UR5RobotController:
             math.radians(0),
             math.radians(0),
             math.radians(0),
-        ]  # The joint positions the robot starts at
+        ]
         # self.init_position = [
         #     math.radians(149.91),
         #     math.radians(-83.37),
@@ -44,7 +43,7 @@ class UR5RobotController:
         #     math.radians(-69.2),
         #     math.radians(59.91),
         #     math.radians(180)
-        # ]  # The joint positions the robot starts at
+        # ]
 
         self.init_robot()
 
@@ -56,12 +55,9 @@ class UR5RobotController:
         )
         self.robot.reset_error()
         self.robot.movej(q=self.home_position, a=self.acc, v=self.vel)
-
         self.robot.waitRobotIdleOrStopFlag()
-
-        self.robot.init_realtime_control()  # starts the realtime control loop on the Universal-Robot Controller
-
-        time.sleep(0.5)  # just a short wait to make sure everything is initialised
+        self.robot.init_realtime_control()
+        time.sleep(0.5)
 
         print("Robot initialized!")
 
@@ -81,79 +77,48 @@ class UR5RobotController:
         return orig
 
     def get_joints(self, type="deg"):
+        currentJoints = self.robot.get_actual_joint_positions()
         if type == "deg":
-            currentJoins = self.robot.get_actual_joint_positions()
-            currentJoints = np.degrees(currentJoins)
-        elif type == "rad":
-            currentJoints = self.robot.get_actual_joint_positions()
-        else:
+            currentJoints = np.degrees(currentJoints)
+        elif type != "rad":
             print("get_joints: wrong type")
-            currentJoints = -1
-
+            return -1
         return currentJoints
 
     def is_moving(self):
-        raise NotImplemented
+        raise NotImplementedError
 
     def is_home(self, eps=0.02):
         j = self.get_joints()
         t = np.array(self.home_position)
         d = np.abs(t - j)
-        home = True
-        for q in d:
-            if q > eps:
-                home = False
-                break
-
-        return home
+        return np.all(d < eps)
 
     def at_target(self, t, type="deg", eps=0.02):
         j = self.get_joints(type=type)
-        if (
-            t[0] + eps > j[0] > t[0] - eps
-            and j[1] < t[1] + eps
-            and j[1] > t[1] - eps
-            and j[2] < t[2] + eps
-            and j[2] > t[2] - eps
-            and j[3] < t[3] + eps
-            and j[3] > t[3] - eps
-            and j[4] < t[4] + eps
-            and j[4] > t[4] - eps
-            and j[5] < t[5] + eps
-            and j[5] > t[5] - eps
-        ):
-            at_target = True
-        else:
-            at_target = False
-        return at_target
+        return np.all(np.abs(np.array(t) - j) < eps)
 
     def move_robot(self, next_pose):
         # inv_kin = pose["inverse kinematic"]
         # robot.set_realtime_pose(next_pose)
         self.robot.movej(pose=next_pose)
         self.robot.waitRobotIdleOrStopFlag()
-
         return 1
+
+    def close(self):
+        if self.robot:
+            self.robot.close()
 
 
 if __name__ == "__main__":
-
     UR5 = UR5RobotController("192.168.2.144")  # URSim
 
     try:
         print(UR5)
-
     except KeyboardInterrupt:
-        print("closing robot connection")
-        # Remember to always close the robot connection, otherwise it is not possible to reconnect
-        UR5.close()
-
-    except:
-        print("closing robot connection")
-        # Remember to always close the robot connection, otherwise it is not possible to reconnect
-        UR5.close()
-
+        print("Keyboard interrupt detected. Closing robot connection.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
     finally:
-        print("closing robot connection")
-        # Remember to always close the robot connection, otherwise it is not possible to reconnect
+        print("Closing robot connection.")
         UR5.close()

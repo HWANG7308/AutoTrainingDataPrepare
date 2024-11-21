@@ -9,7 +9,8 @@ def get_selection(
     with_return=True,
     with_exit=False,
 ):
-    """Enables navigation in a list of options.
+    """
+    Enables navigation in a list of options.
 
     Args:
         options_list (list): list of options
@@ -17,6 +18,8 @@ def get_selection(
 
     Returns:
         string: some selection of the given list
+
+    From https://github.com/KochPJ/AutoPoseEstimation
     """
     selection_string = ""
     if select_from_range:
