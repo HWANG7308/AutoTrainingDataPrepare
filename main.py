@@ -5,13 +5,11 @@ Python program for realtime movement of a Universal Robot (tested with UR5cb)
 
 Created by Hao Wang
 License: MIT License
-
 """
 
 import os
 import json
 from pathlib import Path
-import time
 import datetime
 import math
 import math3d as m3d
@@ -19,11 +17,7 @@ import cv2
 from PoseGenerator import PoseGenerator
 from URController import UR5RobotController
 from DepthCamera import D435
-from DataAnnotator import (
-    Annotator2DBBox,
-    Annotator3DBBox,
-    Annotator6DPose,
-)
+from DataAnnotator import Annotator2DBBox, Annotator3DBBox, Annotator6DPose
 from utils import *
 
 
@@ -32,31 +26,30 @@ def acquire_new_data_from_object():
     Acquire new images from an object by taking images with given robot poses
     """
 
-    # create a UR5
+    # create a UR5 robot controller
     UR5 = UR5RobotController(ROBOT_IP)
 
     # create a depth camera
     DC = D435()
 
     # Generate the end-effector positions to capture object images from various defined views
-    # robot_poses = PoseGenerator(T_rob2obj, T_end2cam).generate_positions()
+    robot_poses = PoseGenerator(T_rob2obj, T_end2cam).generate_positions()
 
     # for test only
     # robot_poses = PoseGenerator(T_rob2obj, T_end2cam).generate_position_example(
     #     theta=-math.pi / 4, phi=-math.pi / 4
     # )
-    pose_top = PoseGenerator(T_rob2obj, T_end2cam).generate_position_example()
-    pose_mid = PoseGenerator(T_rob2obj, T_end2cam).generate_position_example(
-        phi=-math.pi / 4
-    )
-    pose_front = PoseGenerator(T_rob2obj, T_end2cam).generate_position_example(
-        phi=-math.pi / 2
-    )
-    robot_poses = pose_top + pose_mid + pose_front
+    # pose_top = PoseGenerator(T_rob2obj, T_end2cam).generate_position_example()
+    # pose_mid = PoseGenerator(T_rob2obj, T_end2cam).generate_position_example(
+    #     phi=-math.pi / 4
+    # )
+    # pose_front = PoseGenerator(T_rob2obj, T_end2cam).generate_position_example(
+    #     phi=-math.pi / 2
+    # )
+    # robot_poses = pose_top + pose_mid + pose_front
 
     data_dir = os.path.join(root, "results/acquired_data")
-    if not os.path.exists(data_dir):
-        os.makedirs(data_dir)
+    os.makedirs(data_dir, exist_ok=True)
 
     names = list(os.listdir(data_dir))
 
@@ -65,17 +58,14 @@ def acquire_new_data_from_object():
         name = input("Enter name of the new object: ")
         if name in names:
             print(
-                "An object with the name, {}, already exists. Please find a different name.".format(
-                    name
-                )
+                f"An object with the name, {name}, already exists. Please find a different name."
             )
             continue
         print("Current name is:", name)
         break
 
     data_save_dir = os.path.join(data_dir, name)
-    if not os.path.exists(data_save_dir):
-        os.makedirs(data_save_dir)
+    os.makedirs(data_save_dir, exist_ok=True)
 
     try:
         for n, pose in enumerate(robot_poses):
@@ -84,59 +74,48 @@ def acquire_new_data_from_object():
 
             next_pose = pose.get("next pose")
 
-            print("Moving the robot to {}...".format(next_pose))
+            print(f"Moving the robot to {next_pose}...")
             UR5.move_robot(next_pose)
             print("Robot moved to position!")
 
             print("Getting data from the camera...")
-            out, success = DC.get_frames(
-                return_intrinsics=True,
-                with_repair=False,
-            )
+            out, success = DC.get_frames(return_intrinsics=True, with_repair=False)
             if not success:
                 print("Failed to get data at this position!")
                 continue
 
             print("Saving data to:", data_save_dir)
-            cv2.imwrite(data_save_dir + "/color_{:06d}.png".format(n), out.get("color"))
-            cv2.imwrite(data_save_dir + "/depth_{:06d}.png".format(n), out.get("depth"))
+            cv2.imwrite(
+                os.path.join(data_save_dir, f"color_{n:06d}.png"), out.get("color")
+            )
+            cv2.imwrite(
+                os.path.join(data_save_dir, f"depth_{n:06d}.png"), out.get("depth")
+            )
 
-            # get meta data
-            meta = {}
-            meta["class"] = name
-            meta["time"] = datetime.datetime.today().strftime("%Y-%m-%d, %H:%M:%S")
-            meta["view_point_id"] = n
-            meta["robot_arm_joints"] = UR5.get_joints().tolist()
-            meta["object_pose"] = pose.get("T_obj2cam").inverse.get_matrix().tolist()
-            meta["tf_rob2end"] = pose.get("T_rob2end").get_matrix().tolist()
-            meta["intrinsics_color"] = out.get("color_intr")
-            meta["depth_scale"] = out.get("depth_scale")
-            # meta['hand_eye_calibration'] = None  # TODO fix the hand-eye calibration
+            # Get meta data
+            meta = {
+                "class": name,
+                "time": datetime.datetime.today().strftime("%Y-%m-%d, %H:%M:%S"),
+                "view_point_id": n,
+                "robot_arm_joints": UR5.get_joints().tolist(),
+                "object_pose": pose.get("T_obj2cam").inverse.get_matrix().tolist(),
+                "tf_rob2end": pose.get("T_rob2end").get_matrix().tolist(),
+                "intrinsics_color": out.get("color_intr"),
+                "depth_scale": out.get("depth_scale"),
+                # "hand_eye_calibration": None  # TODO fix the hand-eye calibration
+            }
 
-            with open(data_save_dir + "/meta_{:06d}.json".format(n), "w") as f:
+            with open(os.path.join(data_save_dir, f"meta_{n:06d}.json"), "w") as f:
                 json.dump(meta, f, indent=4)
 
             print("Data sample saved!")
 
     except KeyboardInterrupt:
-        print("Closing robot connection")
-        # Remember to always close the robot connection, otherwise it is not possible to reconnect
-        UR5.robot.close()
-
-        print("Closing camera")
-        DC.pipe.stop()
-
-    except:
-        print("Closing robot connection")
-        # Remember to always close the robot connection, otherwise it is not possible to reconnect
-        UR5.robot.close()
-
-        print("Closing camera")
-        DC.pipe.stop()
-
+        print("Keyboard interrupt detected. Closing connections.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
     finally:
         print("Closing robot connection")
-        # Remember to always close the robot connection, otherwise it is not possible to reconnect
         UR5.robot.close()
 
         print("Closing camera")
@@ -194,31 +173,31 @@ def create_labels_3dbbox():
 
 
 def create_labels_img_seg():
-    raise NotImplemented
+    raise NotImplementedError
 
 
 def train_object_detection():
-    raise NotImplemented
+    raise NotImplementedError
 
 
 def train_pose_estimation():
-    raise NotImplemented
+    raise NotImplementedError
 
 
 def run_live_prediction_obj_detect():
-    raise NotImplemented
+    raise NotImplementedError
 
 
 def run_live_prediction_pose_estimate():
-    raise NotImplemented
+    raise NotImplementedError
 
 
 def visualize():
-    raise NotImplemented
+    raise NotImplementedError
 
 
 def hand_eye_calibration():
-    raise NotImplemented
+    raise NotImplementedError
 
 
 def test_robot_position():
@@ -226,15 +205,10 @@ def test_robot_position():
     Test the generated robot positions
     """
 
-    # create a UR5
+    # Create a UR5 robot controller
     UR5 = UR5RobotController(ROBOT_IP)
 
     # Generate the end-effector positions to capture object images from various defined views
-    # robot_poses = PoseGenerator(T_rob2obj, T_end2cam).generate_positions()
-
-    # robot_poses = PoseGenerator(T_rob2obj, T_end2cam).generate_position_example(
-    #     theta=-math.pi / 4, phi=-math.pi / 4
-    # )
     pose_top = PoseGenerator(T_rob2obj, T_end2cam).generate_position_example()
     pose_mid = PoseGenerator(T_rob2obj, T_end2cam).generate_position_example(
         phi=-math.pi / 4
@@ -242,32 +216,23 @@ def test_robot_position():
     pose_front = PoseGenerator(T_rob2obj, T_end2cam).generate_position_example(
         phi=-math.pi / 2
     )
-    robot_poses = pose_top  # + pose_mid + pose_front
+    robot_poses = pose_top + pose_mid + pose_front
 
     try:
         for n, pose in enumerate(robot_poses):
-            if n > 30:
-                break
 
             next_pose = pose.get("next pose")
 
-            print("Moving the robot to {}...".format(next_pose))
+            print(f"Moving the robot to {next_pose}...")
             UR5.move_robot(next_pose)
             print("Robot moved to position!")
 
     except KeyboardInterrupt:
-        print("Closing robot connection")
-        # Remember to always close the robot connection, otherwise it is not possible to reconnect
-        UR5.robot.close()
-
-    except:
-        print("Closing robot connection")
-        # Remember to always close the robot connection, otherwise it is not possible to reconnect
-        UR5.robot.close()
-
+        print("Keyboard interrupt detected. Closing robot connection.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
     finally:
         print("Closing robot connection")
-        # Remember to always close the robot connection, otherwise it is not possible to reconnect
         UR5.robot.close()
 
 
