@@ -35,18 +35,100 @@ def acquire_new_data_from_object():
     # Generate the end-effector positions to capture object images from various defined views
     robot_poses = PoseGenerator(T_rob2obj, T_end2cam).generate_positions()
 
-    # for test only
-    # robot_poses = PoseGenerator(T_rob2obj, T_end2cam).generate_position_example(
-    #     theta=-math.pi / 4, phi=-math.pi / 4
-    # )
-    # pose_top = PoseGenerator(T_rob2obj, T_end2cam).generate_position_example()
-    # pose_mid = PoseGenerator(T_rob2obj, T_end2cam).generate_position_example(
-    #     phi=-math.pi / 4
-    # )
-    # pose_front = PoseGenerator(T_rob2obj, T_end2cam).generate_position_example(
-    #     phi=-math.pi / 2
-    # )
-    # robot_poses = pose_top + pose_mid + pose_front
+    data_dir = os.path.join(root, "results/acquired_data")
+    os.makedirs(data_dir, exist_ok=True)
+
+    names = list(os.listdir(data_dir))
+
+    while True:
+        print("____________________________________________________________________")
+        name = input("Enter name of the new object: ")
+        if name in names:
+            print(
+                f"An object with the name, {name}, already exists. Please find a different name."
+            )
+            continue
+        print("Current name is:", name)
+        break
+
+    data_save_dir = os.path.join(data_dir, name)
+    os.makedirs(data_save_dir, exist_ok=True)
+
+    try:
+        for n, pose in enumerate(robot_poses):
+            if n > 10:
+                break
+
+            next_pose = pose.get("next pose")
+
+            print(f"Moving the robot to {next_pose}...")
+            UR5.move_robot(next_pose)
+            print("Robot moved to position!")
+
+            print("Getting data from the camera...")
+            out, success = DC.get_frames(return_intrinsics=True, with_repair=False)
+            if not success:
+                print("Failed to get data at this position!")
+                continue
+
+            print("Saving data to:", data_save_dir)
+            cv2.imwrite(
+                os.path.join(data_save_dir, f"color_{n:06d}.png"), out.get("color")
+            )
+            cv2.imwrite(
+                os.path.join(data_save_dir, f"depth_{n:06d}.png"), out.get("depth")
+            )
+
+            # Get meta data
+            meta = {
+                "class": name,
+                "time": datetime.datetime.today().strftime("%Y-%m-%d, %H:%M:%S"),
+                "view_point_id": n,
+                "robot_arm_joints": UR5.get_joints().tolist(),
+                "object_pose": pose.get("T_obj2cam").inverse.get_matrix().tolist(),
+                "tf_rob2end": pose.get("T_rob2end").get_matrix().tolist(),
+                "intrinsics_color": out.get("color_intr"),
+                "depth_scale": out.get("depth_scale"),
+                # "hand_eye_calibration": None  # TODO fix the hand-eye calibration
+            }
+
+            with open(os.path.join(data_save_dir, f"meta_{n:06d}.json"), "w") as f:
+                json.dump(meta, f, indent=4)
+
+            print("Data sample saved!")
+
+    except KeyboardInterrupt:
+        print("Keyboard interrupt detected. Closing connections.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+    finally:
+        print("Closing robot connection")
+        UR5.robot.close()
+
+        print("Closing camera")
+        DC.pipe.stop()
+
+
+def acquire_new_data_from_object_demo():
+    """
+    Acquire new images from an object by taking images with given robot poses (for demo)
+    """
+
+    # create a UR5 robot controller
+    UR5 = UR5RobotController(ROBOT_IP)
+
+    # create a depth camera
+    DC = D435()
+
+    # Generate the end-effector positions to capture object images from various defined views
+    pose_top = PoseGenerator(T_rob2obj, T_end2cam).generate_position_example()
+    pose_mid = PoseGenerator(T_rob2obj, T_end2cam).generate_position_example(
+        phi=-math.pi / 4
+    )
+    pose_front = PoseGenerator(T_rob2obj, T_end2cam).generate_position_example(
+        phi=-math.pi / 2
+    )
+    robot_poses = pose_top + pose_mid + pose_front
 
     data_dir = os.path.join(root, "results/acquired_data")
     os.makedirs(data_dir, exist_ok=True)
@@ -123,53 +205,112 @@ def acquire_new_data_from_object():
 
 
 def create_labels_2dbbox():
-    color_img_path = "results/acquired_data/test/color_000002.png"
-    depth_img_path = None
 
-    # Annotate 2D bounding boxes
-    DA_2dbbox = Annotator2DBBox(color_img_path, depth_img_path)
-    DA_2dbbox.remove_bkg_chroma_key(show_result=True)
-    DA_2dbbox.annotate(show_result=True)
+    raw_data_dir = os.path.join(root, "results/acquired_data")
+    data_save_dir = os.path.join(root, "results/annotated_data")
+    os.makedirs(data_save_dir, exist_ok=True)
+
+    names = list(os.listdir(raw_data_dir))
+
+    for n, name in enumerate(names):
+        color_img_path = os.path.join(raw_data_dir, name, f"color_{n:06d}.png")
+        depth_img_path = os.path.join(
+            os.path.dirname(color_img_path),
+            os.path.basename(color_img_path).replace("color", "depth"),
+        )
+
+        # Annotate 2D bounding boxes
+        annotator = Annotator2DBBox(color_img_path, depth_img_path)
+        _ = annotator.remove_bkg_chroma_key(show_result=True)
+        annotations = annotator.annotate(show_result=True)
+
+        with open(os.path.join(data_save_dir, f"meta_{n:06d}.json"), "w") as f:
+            json.dump(annotations, f, indent=4)
+
+        print("Data annotation (2D bbox) saved!")
 
 
 def create_labels_6dpose():
-    color_img_path = "results/acquired_data/test/color_000002.png"
-    depth_img_path = None
-    meta_path_ = os.path.join(
-        os.path.dirname(color_img_path),
-        os.path.basename(color_img_path).replace("color", "meta"),
-    )
-    meta_path = os.path.splitext(meta_path_)[0] + ".json"
+    raw_data_dir = os.path.join(root, "results/acquired_data")
+    data_save_dir = os.path.join(root, "results/annotated_data")
+    os.makedirs(data_save_dir, exist_ok=True)
 
-    # Annotate 6D poses
-    DA_6dpose = Annotator6DPose(color_img_path, depth_img_path, meta_path)
-    DA_6dpose.annotate(show_result=True)
+    names = list(os.listdir(raw_data_dir))
+
+    for n, name in enumerate(names):
+        color_img_path = os.path.join(raw_data_dir, name, f"color_{n:06d}.png")
+        depth_img_path = os.path.join(
+            os.path.dirname(color_img_path),
+            os.path.basename(color_img_path).replace("color", "depth"),
+        )
+        meta_path_ = os.path.join(
+            os.path.dirname(color_img_path),
+            os.path.basename(color_img_path).replace("color", "meta"),
+        )
+        meta_path = os.path.splitext(meta_path_)[0] + ".json"
+
+        # Annotate 6D poses
+        annotator = Annotator6DPose(color_img_path, depth_img_path, meta_path)
+        annotation = annotator.annotate(show_result=True)
+
+        with open(os.path.join(data_save_dir, f"meta_{n:06d}.json"), "w") as f:
+            json.dump(annotation, f, indent=4)
+
+        print("Data annotation (6D pose) saved!")
 
 
 def create_labels_3dbbox():
-    top_color_img_path = "results/acquired_data/test_bkp/color_000000.png"
-    front_color_img_path = "results/acquired_data/test/color_000002.png"
-    depth_img_path = None
-    test_img_path = "results/acquired_data/test_old/color_000000.png"
-    meta_path_ = os.path.join(
-        os.path.dirname(test_img_path),
-        os.path.basename(test_img_path).replace("color", "meta"),
-    )
-    meta_path = os.path.splitext(meta_path_)[0] + ".json"
+    raw_data_dir = os.path.join(root, "results/acquired_data")
+    data_save_dir = os.path.join(root, "results/annotated_data")
+    os.makedirs(data_save_dir, exist_ok=True)
 
-    # Annotate 3D bounding boxes
-    DA_2DBBox_top = Annotator2DBBox(top_color_img_path, depth_img_path)
-    DA_2DBBox_top.annotate()
-    DA_2DBBox_front = Annotator2DBBox(front_color_img_path, depth_img_path)
-    DA_2DBBox_front.annotate()
-    annotation_top = DA_2DBBox_top.annotation
-    annotation_front = DA_2DBBox_front.annotation
+    names = list(os.listdir(raw_data_dir))
 
-    DA_3dbbox = Annotator3DBBox(test_img_path, depth_img_path, meta_path)
-    oriented_3dbbox = DA_3dbbox.reconstruct_oriented_3dbbox(
-        annotation_front, annotation_top
-    )
-    DA_3dbbox.visualize_3dbbox(oriented_3dbbox)
+    for n, name in enumerate(names):
+
+        # top_color_img_path = "results/acquired_data/test_bkp/color_000000.png"
+        # front_color_img_path = "results/acquired_data/test/color_000002.png"
+        # depth_img_path = None
+        # test_img_path = "results/acquired_data/test_old/color_000000.png"
+
+        # TODO fix the paths of top view and front view here
+        top_color_img_path = os.path.join(raw_data_dir, name, "color_000000.png")
+        top_depth_img_path = os.path.join(
+            os.path.dirname(top_color_img_path),
+            os.path.basename(top_color_img_path).replace("color", "depth"),
+        )
+        front_color_img_path = os.path.join(raw_data_dir, name, "color_000002.png")
+        front_depth_img_path = os.path.join(
+            os.path.dirname(front_color_img_path),
+            os.path.basename(front_color_img_path).replace("color", "depth"),
+        )
+
+        color_img_path = os.path.join(raw_data_dir, name, f"color_{n:06d}.png")
+        depth_img_path = os.path.join(
+            os.path.dirname(color_img_path),
+            os.path.basename(color_img_path).replace("color", "depth"),
+        )
+        meta_path_ = os.path.join(
+            os.path.dirname(color_img_path),
+            os.path.basename(color_img_path).replace("color", "meta"),
+        )
+        meta_path = os.path.splitext(meta_path_)[0] + ".json"
+
+        # Annotate 3D bounding boxes
+        DA_2DBBox_top = Annotator2DBBox(top_color_img_path, top_depth_img_path)
+        DA_2DBBox_top.annotate()
+        DA_2DBBox_front = Annotator2DBBox(front_color_img_path, front_depth_img_path)
+        DA_2DBBox_front.annotate()
+        annotation_top = DA_2DBBox_top.annotation
+        annotation_front = DA_2DBBox_front.annotation
+
+        DA_3dbbox = Annotator3DBBox(color_img_path, depth_img_path, meta_path)
+        oriented_3dbbox = DA_3dbbox.reconstruct_oriented_3dbbox(
+            annotation_front, annotation_top
+        )
+        DA_3dbbox.visualize_3dbbox(oriented_3dbbox)
+
+        # TODO save the meta information
 
 
 def create_labels_img_seg():
@@ -239,6 +380,7 @@ def test_robot_position():
 def main():
     s = {
         "Acquire New Data from Object": acquire_new_data_from_object,
+        "Acquire New Data From Object (Demo)": acquire_new_data_from_object_demo,
         "Create Labels (2D BBox)": create_labels_2dbbox,
         "Create Labels (6D Pose)": create_labels_6dpose,
         "Create Labels (3D BBox)": create_labels_3dbbox,
