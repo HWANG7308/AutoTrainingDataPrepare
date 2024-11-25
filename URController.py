@@ -98,10 +98,18 @@ class UR5RobotController:
         j = self.get_joints(type=type)
         return np.all(np.abs(np.array(t) - j) < eps)
 
-    def move_robot(self, next_pose):
+    def move_robot(self, next_pose, type="j"):
         # inv_kin = pose["inverse kinematic"]
         # robot.set_realtime_pose(next_pose)
-        self.robot.movej(pose=next_pose)
+        if type == "j":
+            self.robot.movej(pose=next_pose)
+        elif type == "l":
+            self.robot.movel(pose=next_pose)
+        elif type == "p":
+            self.robot.movep(pose=next_pose)
+        else:
+            raise TypeError("Only j, l, and p are allowed for moving type")
+
         self.robot.waitRobotIdleOrStopFlag()
         return 1
 

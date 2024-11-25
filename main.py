@@ -56,12 +56,10 @@ def acquire_new_data_from_object():
 
     try:
         for n, pose in enumerate(robot_poses):
-            if n > 10:
-                break
 
             next_pose = pose.get("next pose")
-
             print(f"Moving the robot to {next_pose}...")
+
             UR5.move_robot(next_pose)
             print("Robot moved to position!")
 
@@ -123,10 +121,10 @@ def acquire_new_data_from_object_demo():
     # Generate the end-effector positions to capture object images from various defined views
     pose_top = PoseGenerator(T_rob2obj, T_end2cam).generate_position_example()
     pose_mid = PoseGenerator(T_rob2obj, T_end2cam).generate_position_example(
-        phi=-math.pi / 4
+        phi=math.pi / 4
     )
     pose_front = PoseGenerator(T_rob2obj, T_end2cam).generate_position_example(
-        phi=-math.pi / 2
+        phi=math.pi / 2
     )
     robot_poses = pose_top + pose_mid + pose_front
 
@@ -151,12 +149,10 @@ def acquire_new_data_from_object_demo():
 
     try:
         for n, pose in enumerate(robot_poses):
-            if n > 10:
-                break
 
             next_pose = pose.get("next pose")
-
             print(f"Moving the robot to {next_pose}...")
+
             UR5.move_robot(next_pose)
             print("Robot moved to position!")
 
@@ -205,7 +201,6 @@ def acquire_new_data_from_object_demo():
 
 
 def create_labels_2dbbox():
-
     raw_data_dir = os.path.join(root, "results/acquired_data")
     data_save_dir = os.path.join(root, "results/annotated_data")
     os.makedirs(data_save_dir, exist_ok=True)
@@ -341,42 +336,6 @@ def hand_eye_calibration():
     raise NotImplementedError
 
 
-def test_robot_position():
-    """
-    Test the generated robot positions
-    """
-
-    # Create a UR5 robot controller
-    UR5 = UR5RobotController(ROBOT_IP)
-
-    # Generate the end-effector positions to capture object images from various defined views
-    pose_top = PoseGenerator(T_rob2obj, T_end2cam).generate_position_example()
-    pose_mid = PoseGenerator(T_rob2obj, T_end2cam).generate_position_example(
-        phi=-math.pi / 4
-    )
-    pose_front = PoseGenerator(T_rob2obj, T_end2cam).generate_position_example(
-        phi=-math.pi / 2
-    )
-    robot_poses = pose_top + pose_mid + pose_front
-
-    try:
-        for n, pose in enumerate(robot_poses):
-
-            next_pose = pose.get("next pose")
-
-            print(f"Moving the robot to {next_pose}...")
-            UR5.move_robot(next_pose)
-            print("Robot moved to position!")
-
-    except KeyboardInterrupt:
-        print("Keyboard interrupt detected. Closing robot connection.")
-    except Exception as e:
-        print(f"An error occurred: {e}")
-    finally:
-        print("Closing robot connection")
-        UR5.robot.close()
-
-
 def main():
     s = {
         "Acquire New Data from Object": acquire_new_data_from_object,
@@ -391,7 +350,6 @@ def main():
         # "Run Live Prediction (Pose Estimation)": run_live_prediction_pose_estimate,
         # "Visualize": visualize,
         # "Hand-Eye Calibration": hand_eye_calibration,
-        "Test Robot Position": test_robot_position,
     }
 
     while True:
@@ -408,8 +366,8 @@ def main():
 if __name__ == "__main__":
     root = str(Path(__file__).resolve().parent)
 
-    # ROBOT_IP = "192.168.2.144"  # URSim
-    ROBOT_IP = "192.168.2.196"  # UR5
+    ROBOT_IP = "192.168.2.144"  # URSim
+    # ROBOT_IP = "192.168.2.196"  # UR5
 
     # The configurations of the robot system (the object position regarding the robot, the camera position regarding the end effector)
     # The transformation from the robot base to the object (static, UR5)
