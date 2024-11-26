@@ -22,6 +22,8 @@ class PoseGenerator:
         self.radius = radius
         self.num_azi = num_azi
         self.num_polar = num_polar
+        self.theta_step = 2 * math.pi / self.num_azi
+        self.phi_step = math.pi / 2 / (self.num_polar - 1)
 
     def generate_position_example(self, theta=0, phi=0):
         """Create an example end effector position in spherical coordinate system with defined theta (azimuth) and phi (polar)"""
@@ -43,11 +45,10 @@ class PoseGenerator:
         # TODO: optimize the order of the position list
         print("Generating end effector poses...")
 
-        theta_step = 2 * math.pi / self.num_azi
-        phi_step = math.pi / 2 / (self.num_polar - 1)
         pos_list = [
             self._create_pose(
-                theta_step * i, phi_step * (j if i % 2 == 0 else self.num_polar - 1 - j)
+                self.theta_step * i,
+                self.phi_step * (j if i % 2 == 0 else self.num_polar - 1 - j),
             )
             for i in range(self.num_azi)
             for j in range(self.num_polar)
@@ -60,11 +61,11 @@ class PoseGenerator:
         """Generate a list of end effector positions in spherical coordinate system for rotating the object directly"""
         # TODO This function has not been debugged!!!
         print("Generating end effector poses...")
-        theta_step = 2 * math.pi / self.num_azi
-        phi_step = math.pi / 2 / (self.num_polar - 1)
+
         pos_list = [
             self._create_pose_move_obj(
-                theta_step * i, phi_step * (j if i % 2 == 0 else self.num_polar - 1 - j)
+                self.theta_step * i,
+                self.phi_step * (j if i % 2 == 0 else self.num_polar - 1 - j),
             )
             for i in range(self.num_azi)
             for j in range(self.num_polar)
@@ -78,11 +79,10 @@ class PoseGenerator:
         # TODO: optimize the order of the position list
         print("Generating end effector poses...")
 
-        theta_step = 2 * math.pi / self.num_azi
-        phi_step = math.pi / 2 / (self.num_polar - 1)
         pos_list = [
             self._create_pose(
-                theta_step * i, phi_step * (j if i % 2 == 0 else self.num_polar - 1 - j)
+                self.theta_step * i,
+                self.phi_step * (j if i % 2 == 0 else self.num_polar - 1 - j),
             )
             for i in range(self.num_azi // 2)
             for j in range(self.num_polar // 2)
@@ -134,14 +134,17 @@ def test_robot_position():
     UR5 = UR5RobotController(ROBOT_IP)
 
     T_rob2obj = m3d.Transform(
-        m3d.Orientation.new_rotation_vector((math.pi / 2, 0, 0)), m3d.Vector(0, -0.6, 0)
+        m3d.Orientation.new_rotation_vector((math.pi / 2, 0, 0)),
+        m3d.Vector(0, -0.6, 0),
     )
     T_end2cam = m3d.Transform(
         m3d.Orientation.new_rotation_vector((0, 0, 0)), m3d.Vector(0, 0, 0.05)
     )
 
     # Generate the end effector positions to capture object images from various defined views
-    robot_poses = PoseGenerator(T_rob2obj, T_end2cam).generate_positions()
+    robot_poses = PoseGenerator(
+        T_rob2obj, T_end2cam  # , num_azi=36, num_polar=36
+    ).generate_positions()
 
     try:
         for _, pose in enumerate(robot_poses):
