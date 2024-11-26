@@ -94,9 +94,9 @@ class PoseGenerator:
     def _compute_transform(self, theta, phi):
         """Compute the transformation from object (center of a hemisphere) to camera (a point on the hemisphere)"""
         return m3d.Transform(
-            m3d.Orientation.new_euler((-theta, phi, 0), "ZXY"),
+            m3d.Orientation.new_euler((theta, phi, 0), "ZXY"),
             m3d.Vector(
-                self.radius * math.sin(phi) * math.sin(theta),
+                -self.radius * math.sin(phi) * math.sin(theta),
                 self.radius * math.sin(phi) * math.cos(theta),
                 -self.radius * math.cos(phi),
             ),
