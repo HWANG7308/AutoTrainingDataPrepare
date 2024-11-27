@@ -25,7 +25,7 @@ class PoseGenerator:
         self.theta_step = 2 * math.pi / self.num_azi
         self.phi_step = math.pi / 2 / (self.num_polar - 1)
 
-    def generate_position_example(self, theta=0, phi=0):
+    def generate_position_example(self, theta=0, phi=0, show_result=False):
         """Create an example end effector position in spherical coordinate system with defined theta (azimuth) and phi (polar)"""
         print(f"Generating the end effector pose with theta: {theta} and phi: {phi}")
 
@@ -36,15 +36,22 @@ class PoseGenerator:
         next_pose = T_rob2end.get_logarithm().get_array()
 
         print("End effector poses generated!")
-        return [
+
+        pos_list = [
             {"T_obj2cam": T_obj2cam, "T_rob2end": T_rob2end, "next pose": next_pose}
         ]
+
+        if show_result:
+            self.visualization(pos_list)
+
+        return pos_list
 
     def generate_positions(self, show_result=False):
         """Generate a list of end effector positions in spherical coordinate system"""
         # TODO: optimize the order of the position list
         print("Generating end effector poses...")
 
+        # change polar angle first
         pos_list = [
             self._create_pose(
                 self.theta_step * i,
@@ -54,6 +61,16 @@ class PoseGenerator:
             for j in range(self.num_polar)
         ]
 
+        # change azimuth angle first
+        # pos_list = [
+        #     self._create_pose(
+        #         self.theta_step * (i if j % 2 == 0 else self.num_azi - 1 - i),
+        #         self.phi_step * j,
+        #     )
+        #     for j in range(self.num_polar)
+        #     for i in range(self.num_azi)
+        # ]
+
         print("End effector poses generated!")
 
         if show_result:
@@ -61,7 +78,7 @@ class PoseGenerator:
 
         return pos_list
 
-    def generate_positions_move_obj(self):
+    def generate_positions_move_obj(self, show_result=False):
         """Generate a list of end effector positions in spherical coordinate system for rotating the object directly"""
         # TODO This function has not been debugged!!!
         print("Generating end effector poses...")
@@ -76,9 +93,13 @@ class PoseGenerator:
         ]
 
         print("End effector poses generated!")
+
+        if show_result:
+            self.visualization(pos_list)
+
         return pos_list
 
-    def generate_positions_hand_eye_calibration(self):
+    def generate_positions_hand_eye_calibration(self, show_result=False):
         """Generate a list of end effector positions in spherical coordinate system for hand-eye calibration"""
         # TODO: optimize the order of the position list
         print("Generating end effector poses...")
@@ -86,13 +107,17 @@ class PoseGenerator:
         pos_list = [
             self._create_pose(
                 self.theta_step * i,
-                self.phi_step * (j if i % 2 == 0 else self.num_polar - 1 - j),
+                self.phi_step * ((j if i % 2 == 0 else 1 - j) + 1),
             )
-            for i in range(self.num_azi // 2)
-            for j in range(self.num_polar // 2)
+            for i in range(self.num_azi)
+            for j in range(2)
         ]
 
         print("End effector poses generated!")
+
+        if show_result:
+            self.visualization(pos_list)
+
         return pos_list
 
     def _compute_transform(self, theta, phi):
@@ -143,7 +168,7 @@ class PoseGenerator:
 
         # Visualize each PoseVector
         positions = []
-        for pose in pose_vectors:
+        for index, pose in enumerate(pose_vectors):
             # Extract position
             position = pose.pos  # Get the translation vector (x, y, z)
             x, y, z = position[0], position[1], position[2]
@@ -171,6 +196,9 @@ class PoseGenerator:
                 normalize=True,
                 color="r",
             )
+
+            # Add index label
+            ax.text(x, y, z, f"{index}", color="black", fontsize=10)
 
             # Plot x, y, z axes for orientation
             for i in range(3):  # Iterate over the 3 axes
@@ -228,9 +256,7 @@ def visualize_robot_position():
     )
 
     # Generate the end effector positions to capture object images from various defined views
-    robot_poses = PoseGenerator(T_rob2obj, T_end2cam).generate_positions(
-        show_result=True
-    )
+    _ = PoseGenerator(T_rob2obj, T_end2cam).generate_positions(show_result=True)
 
 
 def test_robot_position():
