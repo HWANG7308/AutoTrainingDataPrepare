@@ -99,6 +99,9 @@ class UR5RobotController:
         return np.all(np.abs(np.array(t) - j) < eps)
 
     def move_robot(self, next_pose, type="j"):
+
+        self.check_joint_limit()
+
         # inv_kin = pose["inverse kinematic"]
         # robot.set_realtime_pose(next_pose)
         if type == "j":
@@ -111,6 +114,23 @@ class UR5RobotController:
             raise TypeError("Only j, l, and p are allowed for moving type")
 
         self.robot.waitRobotIdleOrStopFlag()
+        return 1
+
+    def go_home(self):
+        self.robot.movej(q=self.home_position, a=self.acc, v=self.vel)
+        self.robot.waitRobotIdleOrStopFlag()
+        return 1
+
+    def check_joint_limit(self):
+        joints = self.get_joints()
+        ranges = [(300, 360), (-360, -300)]
+        if any(
+            any(lower <= joint <= upper for lower, upper in ranges) for joint in joints
+        ):
+            print("Approaching joint limits! Go back to home position...")
+            self.go_home()
+            self.robot.waitRobotIdleOrStopFlag()
+
         return 1
 
     def close(self):
