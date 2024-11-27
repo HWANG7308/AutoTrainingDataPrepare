@@ -40,7 +40,7 @@ class PoseGenerator:
             {"T_obj2cam": T_obj2cam, "T_rob2end": T_rob2end, "next pose": next_pose}
         ]
 
-    def generate_positions(self):
+    def generate_positions(self, show_result=False):
         """Generate a list of end effector positions in spherical coordinate system"""
         # TODO: optimize the order of the position list
         print("Generating end effector poses...")
@@ -55,6 +55,10 @@ class PoseGenerator:
         ]
 
         print("End effector poses generated!")
+
+        if show_result:
+            self.visualization(pos_list)
+
         return pos_list
 
     def generate_positions_move_obj(self):
@@ -125,6 +129,109 @@ class PoseGenerator:
         """Find the optimal sequence of defined poses in which the UR5 moves based on a greedy algorithm"""
         pass
 
+    def visualization(self, pose_list):
+        import matplotlib.pyplot as plt
+
+        # from mpl_toolkits.mplot3d import Axes3D
+
+        # Example PoseVector list
+        pose_vectors = [pose.get("T_rob2end") for pose in pose_list]
+
+        # Prepare 3D figure
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection="3d")
+
+        # Visualize each PoseVector
+        positions = []
+        for pose in pose_vectors:
+            # Extract position
+            position = pose.pos  # Get the translation vector (x, y, z)
+            x, y, z = position[0], position[1], position[2]
+            positions.append([x, y, z])
+
+            # Extract orientation
+            # Use one direction vector to represent orientation (e.g., x-axis of the rotation matrix)
+            orientation_matrix = pose.orient.matrix  # Get the 3x3 rotation matrix
+            direction_vector = orientation_matrix[
+                :, 0
+            ]  # Take the x-axis as a representative vector
+
+            # Plot the position as a point
+            ax.scatter(x, y, z, c="b", marker="o")
+
+            # Plot the orientation as an arrow
+            ax.quiver(
+                x,
+                y,
+                z,  # Starting point of the arrow
+                direction_vector[0],  # x-component of the direction
+                direction_vector[1],  # y-component of the direction
+                direction_vector[2],  # z-component of the direction
+                length=0.05,  # Scale arrow length (adjustable)
+                normalize=True,
+                color="r",
+            )
+
+            # Plot x, y, z axes for orientation
+            for i in range(3):  # Iterate over the 3 axes
+                direction_vector = orientation_matrix[:, i]
+                ax.quiver(
+                    x,
+                    y,
+                    z,
+                    direction_vector[0],
+                    direction_vector[1],
+                    direction_vector[2],
+                    length=0.05,
+                    color=["r", "g", "b"][i],
+                )
+
+        # Equalize the scale of the axes
+        positions = np.array(positions)
+        x_limits = [positions[:, 0].min(), positions[:, 0].max()]
+        y_limits = [positions[:, 1].min(), positions[:, 1].max()]
+        z_limits = [positions[:, 2].min(), positions[:, 2].max()]
+
+        # Find the maximum range for all axes
+        max_range = max(
+            x_limits[1] - x_limits[0],
+            y_limits[1] - y_limits[0],
+            z_limits[1] - z_limits[0],
+        )
+
+        # Center the axes and set limits
+        x_middle = sum(x_limits) / 2
+        y_middle = sum(y_limits) / 2
+        z_middle = sum(z_limits) / 2
+
+        ax.set_xlim(x_middle - max_range / 2, x_middle + max_range / 2)
+        ax.set_ylim(y_middle - max_range / 2, y_middle + max_range / 2)
+        ax.set_zlim(z_middle - max_range / 2, z_middle + max_range / 2)
+
+        # Set axis labels
+        ax.set_xlabel("X")
+        ax.set_ylabel("Y")
+        ax.set_zlabel("Z")
+        ax.set_title("PoseVector Visualization (Equal Scale)")
+
+        # Show the plot
+        plt.show()
+
+
+def visualize_robot_position():
+    T_rob2obj = m3d.Transform(
+        m3d.Orientation.new_rotation_vector((math.pi / 2, 0, 0)),
+        m3d.Vector(0, -0.6, 0),
+    )
+    T_end2cam = m3d.Transform(
+        m3d.Orientation.new_rotation_vector((0, 0, 0)), m3d.Vector(0, 0, 0.05)
+    )
+
+    # Generate the end effector positions to capture object images from various defined views
+    robot_poses = PoseGenerator(T_rob2obj, T_end2cam).generate_positions(
+        show_result=True
+    )
+
 
 def test_robot_position():
     from URController import UR5RobotController
@@ -161,4 +268,6 @@ def test_robot_position():
 
 
 if __name__ == "__main__":
-    test_robot_position()
+    visualize_robot_position()
+
+    # test_robot_position()
