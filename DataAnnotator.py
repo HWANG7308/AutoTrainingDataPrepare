@@ -160,7 +160,7 @@ class Annotator2DBBox:
             # cv2.imwrite("2D BBox annotation.png", img)
 
 
-class Annotator6DPose:  # TODO fix this annotator
+class Annotator6DPose:
     def __init__(self, color_img_path, depth_img_path, meta_path):
         self.color_img_path = color_img_path
         self.depth_img_path = depth_img_path
@@ -205,7 +205,6 @@ class Annotator6DPose:  # TODO fix this annotator
     def annotate(self, show_result=False):
         """
         Generate the 6D pose annotation given meta data
-        TODO: fix the annotation format
         """
         annotation = {
             "transformation_matrix": self.transformation_matrix.tolist(),
@@ -214,7 +213,7 @@ class Annotator6DPose:  # TODO fix this annotator
             "img_path": os.path.basename(self.color_img_path),
             "img_height": self.color_img_bgr.shape[0],
             "img_width": self.color_img_bgr.shape[1],
-        }
+        }  # TODO: fix the annotation format
 
         if show_result:
             self.visualize_6dpose()
@@ -326,7 +325,7 @@ class Annotator6DPose:  # TODO fix this annotator
         return tmp
 
 
-class Annotator3DBBox:  # TODO fix this annotator
+class Annotator3DBBox:
     def __init__(self, color_img_path, depth_img_path, meta_path):
         self.color_img_path = color_img_path
         self.depth_img_path = depth_img_path
@@ -473,12 +472,15 @@ class Annotator3DBBox:  # TODO fix this annotator
         return img
 
 
-class AnnotatorImgSeg:  # TODO fix this annotator
+class AnnotatorImgSeg:
     def __init__(self):
         self.annotation = {}
 
     def annotate(self):
-        """Transform the chroma-key processed image to segmentation annotation (optional)"""
+        """
+        Transform the chroma-key processed image to segmentation annotation (optional)
+        TODO fix this annotator
+        """
         raise NotImplementedError("The annotate method is not implemented yet.")
 
 
