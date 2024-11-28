@@ -213,9 +213,14 @@ def create_labels_2dbbox():
             os.path.dirname(color_img_path),
             os.path.basename(color_img_path).replace("color", "depth"),
         )
+        meta_path_ = os.path.join(
+            os.path.dirname(color_img_path),
+            os.path.basename(color_img_path).replace("color", "meta"),
+        )
+        meta_path = os.path.splitext(meta_path_)[0] + ".json"
 
         # Annotate 2D bounding boxes
-        annotator = Annotator2DBBox(color_img_path, depth_img_path)
+        annotator = Annotator2DBBox(color_img_path, depth_img_path, meta_path)
         _ = annotator.remove_bkg_chroma_key(show_result=True)
         annotations = annotator.annotate(show_result=True)
 

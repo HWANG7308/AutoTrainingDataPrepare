@@ -14,17 +14,23 @@ import os
 
 
 class Annotator2DBBox:
-    def __init__(self, color_img_path, depth_img_path):
+    def __init__(self, color_img_path, depth_img_path, meta_path):
         self.color_img_path = color_img_path
-        self.ori_color = cv2.imread(self.color_img_path)
-        if self.ori_color is None:
+        self.color_img_bgr = cv2.imread(self.color_img_path)
+        if self.color_img_bgr is None:
             raise FileNotFoundError(f"Color image not found at {self.color_img_path}")
-        self.rgb_img = cv2.cvtColor(self.ori_color, cv2.COLOR_BGR2RGB)
+        self.color_img_rgb = cv2.cvtColor(self.color_img_bgr, cv2.COLOR_BGR2RGB)
 
         self.depth_img_path = depth_img_path
-        # self.ori_depth = cv2.imread(self.depth_img_path)
-        # if self.ori_depth is None:
-        #     raise FileNotFoundError(f"Depth image not found at {self.depth_img_path}")
+        self.depth_img = cv2.imread(self.depth_img_path)
+        if self.depth_img is None:
+            raise FileNotFoundError(f"Depth image not found at {self.depth_img_path}")
+
+        self.meta_path = meta_path
+        with open(self.meta_path, "r") as f:
+            self.meta = json.load(f)
+
+        self.depth_scale = self.meta.get("depth_scale")
 
         self.annotation = {}
 
@@ -46,7 +52,7 @@ class Annotator2DBBox:
         segmented_object = cv2.bitwise_and(self.raw_color_img, self.raw_color_img, mask=mask_inv)
         """
 
-        rgb_img = self.rgb_img
+        rgb_img = self.color_img_rgb
         gray = cv2.cvtColor(rgb_img, cv2.COLOR_RGB2GRAY)
         _, mask = cv2.threshold(gray, white_range[0], white_range[1], cv2.THRESH_BINARY)
         mask = cv2.bitwise_not(mask)
@@ -64,37 +70,33 @@ class Annotator2DBBox:
 
         return rgba_image
 
-    def remove_bkg_depth_value(self, show_result=False):
+    def remove_bkg_depth_value(
+        self, clipping_distance_in_meters=0.3, show_result=False
+    ):
         """
-        Remove background based on depth value (currently not implemented)
-        TODO fix this background removal based on depth value
+        Remove background based on depth value
+        We will be removing the background of objects more than clipping_distance_in_meters meters away
+        TODO This method is not robust enough with small objects like connector terminals, fix this background removal based on depth value
         """
-        depth_value = 300
-        DEPTH_RANGE = 310
 
-        rgb_image = cv2.cvtColor(self.ori_color, cv2.COLOR_BGR2RGB)
+        color_image = self.color_img_bgr
+        depth_img = self.depth_img
 
-        rgbd_array = np.concatenate(
-            (rgb_image, np.expand_dims(depth_value, axis=2)), axis=2
+        clipping_distance = clipping_distance_in_meters / self.depth_scale
+
+        grey_color = 255
+        bg_removed = np.where(
+            (depth_img > clipping_distance) | (depth_img <= 0),
+            grey_color,
+            color_image,
         )
-        rgbd_array[
-            (rgbd_array[..., 3] < 10) | (rgbd_array[..., 3] > DEPTH_RANGE), :3
-        ] = [255, 255, 255]
-        new_rgb_image = rgbd_array[:, :, :3].astype(np.uint8)
-        rgba_image = cv2.cvtColor(new_rgb_image, cv2.COLOR_RGB2RGBA)
-        rgba_image[np.all(rgba_image[:, :, :3] == [255, 255, 255], axis=-1)] = [
-            255,
-            255,
-            255,
-            0,
-        ]
 
         if show_result:
-            cv2.imshow("Result of background removal based on depth value", rgba_image)
+            cv2.imshow("Result of background removal based on depth value", bg_removed)
             cv2.waitKey(0)
             cv2.destroyAllWindows()
 
-        return rgba_image
+        return bg_removed
 
     def annotate(self, show_result=False):
         """Draw 2D BBox (rectangle) around the object given the result of chroma_key(raw_rgb_img)"""
@@ -127,8 +129,8 @@ class Annotator2DBBox:
                     }
                 ],
                 "img_path": os.path.basename(self.color_img_path),
-                "img_height": self.ori_color.shape[0],
-                "img_width": self.ori_color.shape[1],
+                "img_height": self.color_img_bgr.shape[0],
+                "img_width": self.color_img_bgr.shape[1],
             }
 
             annotations.append(annotation)
@@ -142,7 +144,7 @@ class Annotator2DBBox:
         return annotations
 
     def visualize_2dbbox(self):
-        img = self.rgb_img.copy()
+        img = self.color_img_rgb.copy()
         annotation = self.annotation
 
         if annotation:
@@ -164,13 +166,13 @@ class Annotator6DPose:  # TODO fix this annotator
         self.depth_img_path = depth_img_path
         self.meta_path = meta_path
 
-        self.ori_color = cv2.imread(self.color_img_path)
-        if self.ori_color is None:
+        self.color_img_bgr = cv2.imread(self.color_img_path)
+        if self.color_img_bgr is None:
             raise FileNotFoundError(f"Color image not found at {self.color_img_path}")
-        self.rgb_img = cv2.cvtColor(self.ori_color, cv2.COLOR_BGR2RGB)
+        self.color_img_rgb = cv2.cvtColor(self.color_img_bgr, cv2.COLOR_BGR2RGB)
 
-        # self.ori_depth = cv2.imread(self.depth_img_path)
-        # if self.ori_depth is None:
+        # self.depth_img = cv2.imread(self.depth_img_path)
+        # if self.depth_img is None:
         #     raise FileNotFoundError(f"Depth image not found at {self.depth_img_path}")
 
         with open(self.meta_path, "r") as f:
@@ -210,8 +212,8 @@ class Annotator6DPose:  # TODO fix this annotator
             "rotation": self.rotation_matrix.tolist(),
             "translation": self.translation_vector.tolist(),
             "img_path": os.path.basename(self.color_img_path),
-            "img_height": self.ori_color.shape[0],
-            "img_width": self.ori_color.shape[1],
+            "img_height": self.color_img_bgr.shape[0],
+            "img_width": self.color_img_bgr.shape[1],
         }
 
         if show_result:
@@ -223,7 +225,7 @@ class Annotator6DPose:  # TODO fix this annotator
 
     def visualize_6dpose(self):
         """Draw xyz-axis"""
-        color = self.ori_color.copy()
+        color = self.color_img_bgr.copy()
 
         vis = self.draw_xyz_axis(
             color,
@@ -330,13 +332,13 @@ class Annotator3DBBox:  # TODO fix this annotator
         self.depth_img_path = depth_img_path
         self.meta_path = meta_path
 
-        self.ori_color = cv2.imread(self.color_img_path)
-        if self.ori_color is None:
+        self.color_img_bgr = cv2.imread(self.color_img_path)
+        if self.color_img_bgr is None:
             raise FileNotFoundError(f"Color image not found at {self.color_img_path}")
-        self.rgb_img = cv2.cvtColor(self.ori_color, cv2.COLOR_BGR2RGB)
+        self.color_img_rgb = cv2.cvtColor(self.color_img_bgr, cv2.COLOR_BGR2RGB)
 
-        # self.ori_depth = cv2.imread(self.depth_img_path)
-        # if self.ori_depth is None:
+        # self.depth_img = cv2.imread(self.depth_img_path)
+        # if self.depth_img is None:
         #     raise FileNotFoundError(f"Depth image not found at {self.depth_img_path}")
 
         with open(self.meta_path, "r") as f:
@@ -372,7 +374,7 @@ class Annotator3DBBox:  # TODO fix this annotator
         height = bbox_front[1][1] - bbox_front[0][1]
 
         # Convert from the pixel space to real-world space
-        img_height, img_width, _ = self.ori_color.shape
+        img_height, img_width, _ = self.color_img_bgr.shape
         dist_cam2obj = 0.3  # The distance between the camera and the object, i.e., radius in PoseGenerator
 
         length = length / img_width * dist_cam2obj
@@ -392,7 +394,7 @@ class Annotator3DBBox:  # TODO fix this annotator
 
     def visualize_3dbbox(self, oriented_3dbbox):
         """Visualize 3D bounding box"""
-        color = self.ori_color.copy()
+        color = self.color_img_bgr.copy()
 
         vis = self.draw_posed_3d_box(
             img=color,
@@ -481,8 +483,9 @@ class AnnotatorImgSeg:  # TODO fix this annotator
 
 
 def test_2DBBox():
-    annotator = Annotator2DBBox(color_img_path, depth_img_path)
+    annotator = Annotator2DBBox(color_img_path, depth_img_path, meta_path)
     _ = annotator.remove_bkg_chroma_key(show_result=True)
+    _ = annotator.remove_bkg_depth_value(show_result=True)
     annotations = annotator.annotate(show_result=True)
     print(annotations)
 
@@ -512,7 +515,10 @@ def test_3DBBox():
 
 if __name__ == "__main__":
     color_img_path = "results/acquired_data/test/color_000000.png"
-    depth_img_path = None
+    depth_img_path = os.path.join(
+        os.path.dirname(color_img_path),
+        os.path.basename(color_img_path).replace("color", "depth"),
+    )
     meta_path_ = os.path.join(
         os.path.dirname(color_img_path),
         os.path.basename(color_img_path).replace("color", "meta"),
