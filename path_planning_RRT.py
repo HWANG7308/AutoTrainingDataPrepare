@@ -1,3 +1,9 @@
+"""
+Robot path planning using RRT
+
+TODO debug this script
+"""
+
 import ompl.base as ob
 import ompl.geometric as og
 import numpy as np
