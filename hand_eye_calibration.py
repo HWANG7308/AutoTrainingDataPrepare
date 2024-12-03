@@ -1,7 +1,7 @@
 """
-Hand-Eye Calibration Using a Chessboard
+Hand-Eye Calibration Using a Chessboard or ArUco markers
 
-TODO debug this script for hand-eye calibration
+TODO confirm the result
 """
 
 import cv2
@@ -24,27 +24,18 @@ def get_images(robot_poses, UR5, DC):
     return images (list of np.ndarray): a list of captured images
     """
     images = []
-
     try:
         for pose in robot_poses:
             next_pose = pose.get("next pose")
-
             print(f"Moving the robot to {next_pose}...")
             UR5.move_robot(next_pose)
             print("Robot moved to position!")
-
             print("Getting data from the camera...")
-            out, success = DC.get_frames(
-                return_intrinsics=True,
-                with_repair=False,
-            )
-
-            if not success:
-                print("Failed to get data at this position!")
-                continue
-
+            out = DC.get_frames(return_intrinsics=True, with_repair=False)
+            # cv2.imshow("Image", out.get("color"))
+            # cv2.waitKey(0)
+            # cv2.destroyAllWindows()
             images.append(out.get("color"))
-
     except KeyboardInterrupt:
         print("Keyboard interrupt detected. Closing connections.")
     except Exception as e:
@@ -52,21 +43,29 @@ def get_images(robot_poses, UR5, DC):
     finally:
         UR5.close()
         DC.pipe.stop()
-
     return images
 
 
-def get_camera_poses_with_chessboard(images, DC):
+def get_camera_poses(
+    images,
+    DC,
+    method="chessboard",
+    chessboard_length=9,
+    chessboard_width=6,
+    square_size=0.025,
+):
     """
-    Get the camera poses regarding a list of pictures of a chessboard captured from a specific view
+    Get the camera poses using chessboard or ArUco markers
 
     images (list of np.ndarray): the images of a chessboard captured from specific views
+    DC: a depth camera instance
+    method (string): specify using chessboard ("chessboard") or ArUco markers ("aruco")
+    chessboard_length (int), chessboard_width (int), square_size (float): the dimensions of the chessboard
 
     return camera_poses (list of np.ndarray): a list of the camera poses represented by a 4x4 transformation matrix
     """
     camera_poses = []
 
-    # Get camera intrinsics
     camera_intrinsics = DC.get_color_intrinsics()
     cam_K = np.array(
         [
@@ -75,45 +74,57 @@ def get_camera_poses_with_chessboard(images, DC):
             [0, 0, 1],
         ]
     )
-    dist_coeffs = camera_intrinsics.get("coeffs")
+    dist_coeffs = np.asarray(camera_intrinsics.get("coeffs"))
 
-    # Define the dimensions of the chessboard
-    chessboard_size = (9, 6)
-    square_size = 0.025
-
-    # Prepare 3D points in the chessboard coordinate system
-    object_points = np.zeros((chessboard_size[0] * chessboard_size[1], 3), np.float32)
-    object_points[:, :2] = np.mgrid[
-        0 : chessboard_size[0], 0 : chessboard_size[1]
-    ].T.reshape(-1, 2)
-    object_points *= square_size
+    if method == "chessboard":
+        # Prepare 3D points in the chessboard coordinate system
+        object_points = np.zeros((chessboard_length * chessboard_width, 3), np.float32)
+        object_points[:, :2] = np.mgrid[
+            0:chessboard_length, 0:chessboard_width
+        ].T.reshape(-1, 2)
+        object_points *= square_size
 
     for image in images:
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-        # Detect corners
-        ret, corners = cv2.findChessboardCorners(gray, chessboard_size, None)
-        if ret:
-            # Refine corner positions
-            criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
-            corners = cv2.cornerSubPix(
-                gray, corners, winSize=(11, 11), zeroZone=(-1, -1), criteria=criteria
+        if method == "chessboard":
+            ret, corners = cv2.findChessboardCorners(
+                gray, (chessboard_length, chessboard_width), None
             )
-
-            # Solve PnP to get the rotation and translation vectors
-            ret, rvec, tvec = cv2.solvePnP(object_points, corners, cam_K, dist_coeffs)
-
             if ret:
-                # Convert rotation vector to rotation matrix
-                R_c, _ = cv2.Rodrigues(rvec)
-                T_c = tvec
+                # Refine corner positions
+                criteria = (
+                    cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER,
+                    30,
+                    0.001,
+                )
+                corners = cv2.cornerSubPix(
+                    gray,
+                    corners,
+                    winSize=(11, 11),
+                    zeroZone=(-1, -1),
+                    criteria=criteria,
+                )
 
-                camera_poses.append((R_c, T_c))
-            else:
-                print("PnP solution failed for this image.")
+                # Solve PnP to get the rotation and translation vectors
+                ret, rvec, tvec = cv2.solvePnP(
+                    object_points, corners, cam_K, dist_coeffs
+                )
+        elif method == "aruco":
+            aruco_dict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_6X6_250)
+            aruco_params = cv2.aruco.DetectorParameters_create()
+            corners, ids, _ = cv2.aruco.detectMarkers(
+                gray, aruco_dict, parameters=aruco_params
+            )
+            if ids is not None:
+                ret, rvec, tvec = cv2.aruco.estimatePoseSingleMarkers(
+                    corners, 0.05, cam_K, dist_coeffs
+                )
+        if ret:
+            R_c, _ = cv2.Rodrigues(rvec)
+            T_c = tvec
+            camera_poses.append((R_c, T_c))
         else:
-            print("Chessboard corners not found in image.")
-
+            print(f"Pose estimation failed for method {method}.")
     return camera_poses
 
 
@@ -130,36 +141,46 @@ def hand_eye_calibration(robot_poses, camera_poses):
         raise ValueError(
             "Number of camera poses does not match number of robot poses. Check input data."
         )
-
-    R_e_list = [pose.get("T_rob2end")._o for pose in robot_poses]
-    T_e_list = [pose.get("T_rob2end")._v for pose in robot_poses]
-
+    R_e_list = [pose.get("T_rob2end").orient.get_matrix() for pose in robot_poses]
+    T_e_list = [pose.get("T_rob2end").pos.get_array() for pose in robot_poses]
     R_c_list = [pose[0] for pose in camera_poses]
     T_c_list = [pose[1] for pose in camera_poses]
-
     R_ec, T_ec = cv2.calibrateHandEye(
         R_e_list, T_e_list, R_c_list, T_c_list, method=cv2.CALIB_HAND_EYE_TSAI
     )
-
-    print("Transformation from end-effector to camera:")
-    print("Rotation Matrix (R_ec):\n", R_ec)
-    print("Translation Vector (T_ec):\n", T_ec)
-
-    T_end2cam = m3d.Transform(m3d.Orientation(R_ec), m3d.Vector(T_ec))
-
+    T_end2cam = m3d.Transform(m3d.Orientation(R_ec), m3d.Vector(T_ec.ravel()))
     return T_end2cam
 
 
 if __name__ == "__main__":
+    ROBOT_IP = "192.168.2.196"
+    UR5 = UR5RobotController(ROBOT_IP)
+    DC = D435()
+    T_rob2obj = m3d.Transform(
+        m3d.Orientation.new_rotation_vector((math.pi / 2, 0, 0)),
+        m3d.Vector(0, -0.65, 0),
+    )
+    T_end2cam_temp = m3d.Transform(
+        m3d.Orientation.new_rotation_vector((0, 0, 0)), m3d.Vector(0, 0, 0.05)
+    )
+    robot_poses = PoseGenerator(
+        T_rob2obj, T_end2cam_temp
+    ).generate_positions_hand_eye_calibration()
+    images = get_images(robot_poses, UR5, DC)
+    camera_poses = get_camera_poses(images, DC, method="chessboard")
+    T_end2cam = hand_eye_calibration(robot_poses, camera_poses)
+    print("T_end2cam:\n", T_end2cam)
+
     # Step 1: Create an UR5 instance and a D435 instance
-    ROBOT_IP = "192.168.2.144"  # URSim
-    # ROBOT_IP = "192.168.2.196"  # UR5
+    # ROBOT_IP = "192.168.2.144"  # URSim
+    ROBOT_IP = "192.168.2.196"  # UR5
     UR5 = UR5RobotController(ROBOT_IP)
     DC = D435()
 
     # Step 2: Generate a list of robot end effector poses to take images of a chessboard
     T_rob2obj = m3d.Transform(
-        m3d.Orientation.new_rotation_vector((math.pi / 2, 0, 0)), m3d.Vector(0, -0.6, 0)
+        m3d.Orientation.new_rotation_vector((math.pi / 2, 0, 0)),
+        m3d.Vector(0, -0.65, 0),
     )
     T_end2cam_temp = m3d.Transform(
         m3d.Orientation.new_rotation_vector((0, 0, 0)), m3d.Vector(0, 0, 0.05)
@@ -172,9 +193,9 @@ if __name__ == "__main__":
     images = get_images(robot_poses, UR5, DC)
 
     # Step 4: Detect chessboard corners and calculate camera poses
-    camera_poses = get_camera_poses_with_chessboard(images, DC)
+    camera_poses = get_camera_poses(images, DC, method="chessboard")
 
     # Step 5: Perform hand-eye calibration and calculate the transformation matrix from the robot end effector to the camera
     T_end2cam = hand_eye_calibration(robot_poses, camera_poses)
 
-    print(T_end2cam)
+    print("T_end2cam:\n", T_end2cam)
