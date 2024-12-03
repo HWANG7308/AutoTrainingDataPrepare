@@ -1,5 +1,5 @@
 """
-Hand-Eye Calibration Using a Chessboard or ArUco markers
+Hand-Eye Calibration Using a Chessboard/ArUco Markers/ChArUco Board
 
 TODO confirm the result
 """
@@ -53,14 +53,18 @@ def get_camera_poses(
     chessboard_length=9,
     chessboard_width=6,
     square_size=0.025,
+    marker_length=0.05,
 ):
     """
     Get the camera poses using chessboard or ArUco markers
 
     images (list of np.ndarray): the images of a chessboard captured from specific views
     DC: a depth camera instance
-    method (string): specify using chessboard ("chessboard") or ArUco markers ("aruco")
-    chessboard_length (int), chessboard_width (int), square_size (float): the dimensions of the chessboard
+    method (string): specify using chessboard ("chessboard") or ArUco markers ("aruco") or ChArUco ("charuco")
+    chessboard_length (int): the number of inner corners on the length side
+    chessboard_width (int): the number of inner corners on the width side
+    square_size (float): the side length of each square of the chessboard in meters
+    marker_length (float): the side length of the individual ArUco markers within the ChArUco board in meters
 
     return camera_poses (list of np.ndarray): a list of the camera poses represented by a 4x4 transformation matrix
     """
@@ -83,6 +87,11 @@ def get_camera_poses(
             0:chessboard_length, 0:chessboard_width
         ].T.reshape(-1, 2)
         object_points *= square_size
+    elif method == "charuco":
+        aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
+        charuco_board = cv2.aruco.CharucoBoard_create(
+            chessboard_length, chessboard_width, square_size, marker_length, aruco_dict
+        )
 
     for image in images:
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -110,7 +119,7 @@ def get_camera_poses(
                     object_points, corners, cam_K, dist_coeffs
                 )
         elif method == "aruco":
-            aruco_dict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_6X6_250)
+            aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
             aruco_params = cv2.aruco.DetectorParameters_create()
             corners, ids, _ = cv2.aruco.detectMarkers(
                 gray, aruco_dict, parameters=aruco_params
@@ -119,6 +128,17 @@ def get_camera_poses(
                 ret, rvec, tvec = cv2.aruco.estimatePoseSingleMarkers(
                     corners, 0.05, cam_K, dist_coeffs
                 )
+        elif method == "charuco":
+            corners, ids, _ = cv2.aruco.detectMarkers(gray, charuco_board.dictionary)
+            if ids is not None:
+                _, charuco_corners, charuco_ids = cv2.aruco.interpolateCornersCharuco(
+                    corners, ids, gray, charuco_board
+                )
+                if charuco_ids is not None:
+                    ret, rvec, tvec = cv2.aruco.estimatePoseCharucoBoard(
+                        charuco_corners, charuco_ids, charuco_board, cam_K, dist_coeffs
+                    )
+
         if ret:
             R_c, _ = cv2.Rodrigues(rvec)
             T_c = tvec
@@ -153,24 +173,6 @@ def hand_eye_calibration(robot_poses, camera_poses):
 
 
 if __name__ == "__main__":
-    ROBOT_IP = "192.168.2.196"
-    UR5 = UR5RobotController(ROBOT_IP)
-    DC = D435()
-    T_rob2obj = m3d.Transform(
-        m3d.Orientation.new_rotation_vector((math.pi / 2, 0, 0)),
-        m3d.Vector(0, -0.65, 0),
-    )
-    T_end2cam_temp = m3d.Transform(
-        m3d.Orientation.new_rotation_vector((0, 0, 0)), m3d.Vector(0, 0, 0.05)
-    )
-    robot_poses = PoseGenerator(
-        T_rob2obj, T_end2cam_temp
-    ).generate_positions_hand_eye_calibration()
-    images = get_images(robot_poses, UR5, DC)
-    camera_poses = get_camera_poses(images, DC, method="chessboard")
-    T_end2cam = hand_eye_calibration(robot_poses, camera_poses)
-    print("T_end2cam:\n", T_end2cam)
-
     # Step 1: Create an UR5 instance and a D435 instance
     # ROBOT_IP = "192.168.2.144"  # URSim
     ROBOT_IP = "192.168.2.196"  # UR5
