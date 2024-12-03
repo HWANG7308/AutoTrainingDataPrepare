@@ -130,7 +130,7 @@ def get_camera_poses(
             )
             if ids is not None:
                 ret, rvec, tvec = cv2.aruco.estimatePoseSingleMarkers(
-                    corners, 0.05, cam_K, dist_coeffs
+                    corners, marker_length, cam_K, dist_coeffs
                 )
         elif method == "charuco":
             detector = cv2.aruco.ArucoDetector()
@@ -143,7 +143,6 @@ def get_camera_poses(
                     ret, rvec, tvec = cv2.aruco.estimatePoseCharucoBoard(
                         charuco_corners, charuco_ids, charuco_board, cam_K, dist_coeffs
                     )
-
         if ret:
             R_c, _ = cv2.Rodrigues(rvec)
             T_c = tvec
