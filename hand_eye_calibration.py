@@ -88,7 +88,7 @@ def get_camera_poses(
         ].T.reshape(-1, 2)
         object_points *= square_size
     elif method == "charuco":
-        aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
+        aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_5X5_100)
         charuco_board = cv2.aruco.CharucoBoard_create(
             chessboard_length, chessboard_width, square_size, marker_length, aruco_dict
         )
@@ -119,7 +119,7 @@ def get_camera_poses(
                     object_points, corners, cam_K, dist_coeffs
                 )
         elif method == "aruco":
-            aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
+            aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_5X5_100)
             aruco_params = cv2.aruco.DetectorParameters_create()
             corners, ids, _ = cv2.aruco.detectMarkers(
                 gray, aruco_dict, parameters=aruco_params
@@ -195,7 +195,15 @@ if __name__ == "__main__":
     images = get_images(robot_poses, UR5, DC)
 
     # Step 4: Detect chessboard corners and calculate camera poses
-    camera_poses = get_camera_poses(images, DC, method="chessboard")
+    camera_poses = get_camera_poses(
+        images,
+        DC,
+        method="charuco",
+        chessboard_length=7,
+        chessboard_width=5,
+        square_size=0.3,
+        marker_length=0.15,
+    )
 
     # Step 5: Perform hand-eye calibration and calculate the transformation matrix from the robot end effector to the camera
     T_end2cam = hand_eye_calibration(robot_poses, camera_poses)
