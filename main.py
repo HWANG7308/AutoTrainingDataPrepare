@@ -18,7 +18,7 @@ from PoseGenerator import PoseGenerator
 from URController import UR5RobotController
 from DepthCamera import D435
 from DataAnnotator import Annotator2DBBox, Annotator3DBBox, Annotator6DPose
-from utils import *
+from utils.utils import get_selection
 
 
 def acquire_new_data_from_object():

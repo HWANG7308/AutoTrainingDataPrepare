@@ -1,4 +1,5 @@
 import numpy as np
+import cv2
 
 
 def get_selection(
@@ -109,3 +110,36 @@ def get_selection(
             # If user input is not valid, let the user try again
             else:
                 print("That is not a valid option. Try again.")
+
+
+def draw_ArUco(marker_id=42, marker_size=200):
+
+    # Define the dictionary and marker ID
+    aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
+
+    # Generate the marker
+    marker_image = np.zeros((marker_size, marker_size), dtype=np.uint8)
+    marker_image = cv2.aruco.generateImageMarker(
+        aruco_dict, marker_id, marker_size, marker_image, 1
+    )
+
+    return marker_image
+
+
+def draw_ChArUco():
+    # Define ChArUco board parameters
+    squares_x = 5  # Number of squares in X direction
+    squares_y = 7  # Number of squares in Y direction
+    square_length = 0.04  # Square side length (in meters)
+    marker_length = 0.02  # Marker side length (in meters)
+
+    # Create ChArUco board
+    aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
+    charuco_board = cv2.aruco.CharucoBoard(
+        (squares_x, squares_y), square_length, marker_length, aruco_dict
+    )
+
+    # Generate ChArUco board image
+    board_image = charuco_board.generateImage((600, 800))
+
+    return board_image
