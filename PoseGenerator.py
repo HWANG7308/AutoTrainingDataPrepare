@@ -107,9 +107,9 @@ class PoseGenerator:
         pos_list = [
             self._create_pose(
                 self.theta_step * i,
-                self.phi_step * ((j if i % 2 == 0 else 1 - j) + 1),
+                self.phi_step * (j if i % 2 == 0 else 1 - j),
             )
-            for i in range(self.num_azi)
+            for i in range(self.num_azi // 2)
             for j in range(2)
         ]
 
@@ -249,7 +249,7 @@ class PoseGenerator:
 def visualize_robot_position():
     T_rob2obj = m3d.Transform(
         m3d.Orientation.new_rotation_vector((math.pi / 2, 0, 0)),
-        m3d.Vector(0, -0.6, 0),
+        m3d.Vector(0, -0.65, 0),
     )
     T_end2cam = m3d.Transform(
         m3d.Orientation.new_rotation_vector((0, 0, 0)), m3d.Vector(0, 0, 0.05)
@@ -263,12 +263,13 @@ def test_robot_position():
     from URController import UR5RobotController
 
     # Create a UR5 robot controller
-    ROBOT_IP = "192.168.2.144"  # URSim
+    # ROBOT_IP = "192.168.2.144"  # URSim
+    ROBOT_IP = "192.168.2.196"  # UR5
     UR5 = UR5RobotController(ROBOT_IP)
 
     T_rob2obj = m3d.Transform(
         m3d.Orientation.new_rotation_vector((math.pi / 2, 0, 0)),
-        m3d.Vector(0, -0.6, 0),
+        m3d.Vector(0, -0.65, 0),
     )
     T_end2cam = m3d.Transform(
         m3d.Orientation.new_rotation_vector((0, 0, 0)), m3d.Vector(0, 0, 0.05)
@@ -277,7 +278,7 @@ def test_robot_position():
     # Generate the end effector positions to capture object images from various defined views
     robot_poses = PoseGenerator(
         T_rob2obj, T_end2cam  # , num_azi=36, num_polar=36
-    ).generate_positions()
+    ).generate_positions_hand_eye_calibration()
 
     try:
         for _, pose in enumerate(robot_poses):
@@ -285,6 +286,9 @@ def test_robot_position():
             print(f"Moving the robot to {next_pose}...")
             UR5.move_robot(next_pose)
             print("Robot moved to position!")
+
+            # UR5.go_home()
+            # print("Going home...")
     except KeyboardInterrupt:
         print("Keyboard interrupt detected. Closing robot connection.")
     except Exception as e:
@@ -294,6 +298,6 @@ def test_robot_position():
 
 
 if __name__ == "__main__":
-    visualize_robot_position()
+    # visualize_robot_position()
 
-    # test_robot_position()
+    test_robot_position()
