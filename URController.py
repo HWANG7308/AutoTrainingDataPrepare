@@ -28,7 +28,7 @@ class UR5RobotController:
             math.radians(0),
         ]
 
-        self.init_position = [
+        self.init_position_1 = [
             math.radians(0),
             math.radians(-25),
             math.radians(-155),
@@ -36,14 +36,24 @@ class UR5RobotController:
             math.radians(0),
             math.radians(0),
         ]
-        # self.init_position = [
-        #     math.radians(149.91),
-        #     math.radians(-83.37),
-        #     math.radians(152.57),
-        #     math.radians(-69.2),
-        #     math.radians(59.91),
-        #     math.radians(180)
-        # ]
+
+        self.init_position_2 = [
+            math.radians(149.91),
+            math.radians(-83.37),
+            math.radians(152.57),
+            math.radians(-69.2),
+            math.radians(59.91),
+            math.radians(180),
+        ]
+
+        self.init_position_3 = [
+            math.radians(-90),
+            math.radians(-90),
+            math.radians(-90),
+            math.radians(-90),
+            math.radians(90),
+            math.radians(0),
+        ]
 
         self.init_robot()
 
@@ -54,7 +64,7 @@ class UR5RobotController:
             host=self.robot_ip, robotModel=self.robot_model
         )
         self.robot.reset_error()
-        self.robot.movej(q=self.home_position, a=self.acc, v=self.vel)
+        self.robot.movej(q=self.init_position_3, a=self.acc, v=self.vel)
         self.robot.waitRobotIdleOrStopFlag()
         self.robot.init_realtime_control()
         time.sleep(0.5)
