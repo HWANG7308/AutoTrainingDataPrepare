@@ -185,8 +185,8 @@ if __name__ == "__main__":
 
     # Step 2: Generate a list of robot end effector poses to take images of a chessboard
     T_rob2obj = m3d.Transform(
-        m3d.Orientation.new_rotation_vector((math.pi / 2, 0, 0)),
-        m3d.Vector(0, -0.65, 0),
+        m3d.Orientation.new_euler((math.pi / 2, 0, math.pi), "XYZ"),
+        m3d.Vector(0, -0.7, 0),
     )
     T_end2cam_temp = m3d.Transform(
         m3d.Orientation.new_rotation_vector((0, 0, 0)), m3d.Vector(0, 0, 0.05)
