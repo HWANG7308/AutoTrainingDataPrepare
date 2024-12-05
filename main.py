@@ -14,6 +14,7 @@ import datetime
 import math
 import math3d as m3d
 import cv2
+import hand_eye_calibration
 from PoseGenerator import PoseGenerator
 from URController import UR5RobotController
 from DepthCamera import D435
@@ -56,19 +57,16 @@ def acquire_new_data_from_object():
 
     try:
         for n, pose in enumerate(robot_poses):
-
+            print(f"Position {n}:")
             next_pose = pose.get("next pose")
-            print(f"Moving the robot to {next_pose}...")
-
-            UR5.move_robot(next_pose)
-            print("Robot moved to position!")
-
+            _ = UR5.move_robot(next_pose=next_pose)
             print("Getting data from the camera...")
             out, success = DC.get_frames(return_intrinsics=True, with_repair=False)
             if not success:
                 print("Failed to get data at this position!")
                 continue
 
+            # Get color and depth images
             print("Saving data to:", data_save_dir)
             cv2.imwrite(
                 os.path.join(data_save_dir, f"color_{n:06d}.png"), out.get("color")
@@ -89,18 +87,18 @@ def acquire_new_data_from_object():
                 "depth_scale": out.get("depth_scale"),
                 # "hand_eye_calibration": None  # TODO fix the hand-eye calibration
             }
-
             with open(os.path.join(data_save_dir, f"meta_{n:06d}.json"), "w") as f:
                 json.dump(meta, f, indent=4)
 
             print("Data sample saved!")
+
+            UR5.go_init()
 
     except KeyboardInterrupt:
         print("Keyboard interrupt detected. Closing connections.")
     except Exception as e:
         print(f"An error occurred: {e}")
     finally:
-        print("Closing robot connection")
         UR5.robot.close()
 
         print("Closing camera")
@@ -149,12 +147,9 @@ def acquire_new_data_from_object_demo():
 
     try:
         for n, pose in enumerate(robot_poses):
-
+            print(f"Position {n}:")
             next_pose = pose.get("next pose")
-            print(f"Moving the robot to {next_pose}...")
-
-            UR5.move_robot(next_pose)
-            print("Robot moved to position!")
+            UR5.move_robot(next_pose=next_pose)
 
             print("Getting data from the camera...")
             out, success = DC.get_frames(return_intrinsics=True, with_repair=False)
@@ -170,7 +165,6 @@ def acquire_new_data_from_object_demo():
                 os.path.join(data_save_dir, f"depth_{n:06d}.png"), out.get("depth")
             )
 
-            # Get meta data
             meta = {
                 "class": name,
                 "time": datetime.datetime.today().strftime("%Y-%m-%d, %H:%M:%S"),
@@ -193,7 +187,6 @@ def acquire_new_data_from_object_demo():
     except Exception as e:
         print(f"An error occurred: {e}")
     finally:
-        print("Closing robot connection")
         UR5.robot.close()
 
         print("Closing camera")
@@ -338,7 +331,22 @@ def visualize():
 
 
 def hand_eye_calibration():
-    raise NotImplementedError
+    UR5 = UR5RobotController(ROBOT_IP)
+    DC = D435()
+
+    robot_poses = PoseGenerator(
+        T_rob2obj, T_end2cam
+    ).generate_positions_hand_eye_calibration()
+
+    images = hand_eye_calibration.get_images(robot_poses, UR5, DC)
+
+    camera_poses = hand_eye_calibration.get_camera_poses(
+        images, DC, method="chessboard"
+    )
+
+    T_end2cam_calib = hand_eye_calibration(robot_poses, camera_poses)
+
+    print("Calibrated T_end2cam:\n", T_end2cam_calib)
 
 
 def main():
@@ -354,7 +362,7 @@ def main():
         # "Run Live Prediction (Object Detection)": run_live_prediction_obj_detect,
         # "Run Live Prediction (Pose Estimation)": run_live_prediction_pose_estimate,
         # "Visualize": visualize,
-        # "Hand-Eye Calibration": hand_eye_calibration,
+        "Hand-Eye Calibration": hand_eye_calibration,
     }
 
     while True:
@@ -371,20 +379,18 @@ def main():
 if __name__ == "__main__":
     root = str(Path(__file__).resolve().parent)
 
-    ROBOT_IP = "192.168.2.144"  # URSim
-    # ROBOT_IP = "192.168.2.196"  # UR5
+    # ROBOT_IP = "192.168.2.144"  # URSim
+    ROBOT_IP = "192.168.2.196"  # UR5
 
     # The configurations of the robot system (the object position regarding the robot, the camera position regarding the end effector)
     # The transformation from the robot base to the object (static, UR5)
     T_rob2obj = m3d.Transform(
-        m3d.Orientation.new_rotation_vector((math.pi / 2, 0, 0)), m3d.Vector(0, -0.6, 0)
+        m3d.Orientation.new_euler((math.pi / 2, 0, math.pi), "XYZ"),
+        m3d.Vector(0, -0.7, 0),
     )
-    # print('The transformation from the robot base to the object:', T_rob2obj)
-
     # The transformation from the end effector to the camera (static)
     T_end2cam = m3d.Transform(
         m3d.Orientation.new_rotation_vector((0, 0, 0)), m3d.Vector(0, 0, 0.05)
     )
-    # print('The transformation from the end effector to the camera:', T_end2cam)
 
     main()
