@@ -34,7 +34,9 @@ def acquire_new_data_from_object():
     DC = D435()
 
     # Generate the end-effector positions to capture object images from various defined views
-    robot_poses = PoseGenerator(T_rob2obj, T_end2cam).generate_positions()
+    robot_poses = PoseGenerator(T_rob2obj, T_end2cam).generate_positions(
+        change_first="azimuth"
+    )
 
     data_dir = os.path.join(root, "results/acquired_data")
     os.makedirs(data_dir, exist_ok=True)
@@ -61,10 +63,7 @@ def acquire_new_data_from_object():
             next_pose = pose.get("next pose")
             _ = UR5.move_robot(next_pose=next_pose)
             print("Getting data from the camera...")
-            out, success = DC.get_frames(return_intrinsics=True, with_repair=False)
-            if not success:
-                print("Failed to get data at this position!")
-                continue
+            out = DC.get_frames(return_intrinsics=True, with_repair=False)
 
             # Get color and depth images
             print("Saving data to:", data_save_dir)
@@ -152,10 +151,7 @@ def acquire_new_data_from_object_demo():
             UR5.move_robot(next_pose=next_pose)
 
             print("Getting data from the camera...")
-            out, success = DC.get_frames(return_intrinsics=True, with_repair=False)
-            if not success:
-                print("Failed to get data at this position!")
-                continue
+            out = DC.get_frames(return_intrinsics=True, with_repair=False)
 
             print("Saving data to:", data_save_dir)
             cv2.imwrite(
