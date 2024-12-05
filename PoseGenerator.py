@@ -1,6 +1,7 @@
 import math
 import math3d as m3d
 import numpy as np
+import json
 
 
 class PoseGenerator:
@@ -46,30 +47,33 @@ class PoseGenerator:
 
         return pos_list
 
-    def generate_positions(self, show_result=False):
+    def generate_positions(self, change_first="polar", show_result=False):
         """Generate a list of end effector positions in spherical coordinate system"""
         # TODO: optimize the order of the position list
         print("Generating end effector poses...")
 
-        # change polar angle first
-        pos_list = [
-            self._create_pose(
-                self.theta_step * i,
-                self.phi_step * (j if i % 2 == 0 else self.num_polar - 1 - j),
-            )
-            for i in range(self.num_azi)
-            for j in range(self.num_polar)
-        ]
-
-        # change azimuth angle first
-        # pos_list = [
-        #     self._create_pose(
-        #         self.theta_step * (i if j % 2 == 0 else self.num_azi - 1 - i),
-        #         self.phi_step * j,
-        #     )
-        #     for j in range(self.num_polar)
-        #     for i in range(self.num_azi)
-        # ]
+        if change_first == "polar":
+            # change polar angle first
+            pos_list = [
+                self._create_pose(
+                    self.theta_step * i,
+                    self.phi_step * (j if i % 2 == 0 else self.num_polar - 1 - j),
+                )
+                for i in range(self.num_azi)
+                for j in range(self.num_polar)
+            ]
+        elif change_first == "azimuth":
+            # change azimuth angle first
+            pos_list = [
+                self._create_pose(
+                    self.theta_step * (i if j % 2 == 0 else self.num_azi - 1 - i),
+                    self.phi_step * j,
+                )
+                for j in range(self.num_polar)
+                for i in range(self.num_azi)
+            ]
+        else:
+            TypeError("Only polar and azimuth are allowed for change_first")
 
         print("End effector poses generated!")
 
@@ -123,9 +127,9 @@ class PoseGenerator:
     def _compute_transform(self, theta, phi):
         """Compute the transformation from object (center of a hemisphere) to camera (a point on the hemisphere)"""
         return m3d.Transform(
-            m3d.Orientation.new_euler((theta, phi, 0), "ZXY"),
+            m3d.Orientation.new_euler((-theta, phi, 0), "ZXY"),
             m3d.Vector(
-                -self.radius * math.sin(phi) * math.sin(theta),
+                self.radius * math.sin(phi) * math.sin(theta),
                 self.radius * math.sin(phi) * math.cos(theta),
                 -self.radius * math.cos(phi),
             ),
@@ -138,6 +142,9 @@ class PoseGenerator:
         return {"T_obj2cam": T_obj2cam, "T_rob2end": T_rob2end, "next pose": next_pose}
 
     def _create_pose_move_obj(self, theta, phi):
+        """
+        TODO debug this function
+        """
         T_end2obj_canonical = m3d.Transform(
             m3d.Orientation.new_rotation_vector((0, 0, 0)),
             m3d.Vector(0, 0, 0.35),
@@ -152,7 +159,7 @@ class PoseGenerator:
 
     def _optimize_trajectory(self, poses):
         """Find the optimal sequence of defined poses in which the UR5 moves based on a greedy algorithm"""
-        pass
+        raise NotImplementedError
 
     def visualization(self, pose_list):
         import matplotlib.pyplot as plt
@@ -161,6 +168,7 @@ class PoseGenerator:
 
         # Example PoseVector list
         pose_vectors = [pose.get("T_rob2end") for pose in pose_list]
+        pose_vectors.append(self.T_rob2obj)
 
         # Prepare 3D figure
         fig = plt.figure()
@@ -248,8 +256,8 @@ class PoseGenerator:
 
 def visualize_robot_position():
     T_rob2obj = m3d.Transform(
-        m3d.Orientation.new_rotation_vector((math.pi / 2, 0, 0)),
-        m3d.Vector(0, -0.65, 0),
+        m3d.Orientation.new_euler((math.pi / 2, 0, math.pi), "XYZ"),
+        m3d.Vector(0, -0.7, 0),
     )
     T_end2cam = m3d.Transform(
         m3d.Orientation.new_rotation_vector((0, 0, 0)), m3d.Vector(0, 0, 0.05)
@@ -262,14 +270,11 @@ def visualize_robot_position():
 def test_robot_position():
     from URController import UR5RobotController
 
-    # Create a UR5 robot controller
-    # ROBOT_IP = "192.168.2.144"  # URSim
-    ROBOT_IP = "192.168.2.196"  # UR5
-    UR5 = UR5RobotController(ROBOT_IP)
+    UR5 = UR5RobotController(ROBOT_IP, 1, 1)
 
     T_rob2obj = m3d.Transform(
-        m3d.Orientation.new_rotation_vector((math.pi / 2, 0, 0)),
-        m3d.Vector(0, -0.65, 0),
+        m3d.Orientation.new_euler((math.pi / 2, 0, math.pi), "XYZ"),
+        m3d.Vector(0, -0.7, 0),
     )
     T_end2cam = m3d.Transform(
         m3d.Orientation.new_rotation_vector((0, 0, 0)), m3d.Vector(0, 0, 0.05)
@@ -278,17 +283,42 @@ def test_robot_position():
     # Generate the end effector positions to capture object images from various defined views
     robot_poses = PoseGenerator(
         T_rob2obj, T_end2cam  # , num_azi=36, num_polar=36
-    ).generate_positions_hand_eye_calibration()
+    ).generate_positions(change_first="azimuth")
+
+    robot_joints = {}
+    try:
+        for n, pose in enumerate(robot_poses):
+            print(f"Pose {n}:")
+            next_pose = pose.get("next pose")
+            robot_joint = UR5.move_robot(next_pose=next_pose)
+            robot_joints[str(n)] = robot_joint.tolist()
+
+            UR5.go_init()
+    except KeyboardInterrupt:
+        print("Keyboard interrupt detected. Closing robot connection.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+    finally:
+        UR5.robot.close()
+
+    print("Saving robot joints...")
+    with open("utils/robot_joints.json", "w") as f:
+        json.dump(robot_joints, f, indent=4)
+    print("Robot joints saved!")
+
+
+def test_robot_joint():
+    from URController import UR5RobotController
+
+    UR5 = UR5RobotController(ROBOT_IP, 1, 1)
+
+    with open("utils/robot_joints.json", "r") as f:
+        robot_joints = json.load(f)
 
     try:
-        for _, pose in enumerate(robot_poses):
-            next_pose = pose.get("next pose")
-            print(f"Moving the robot to {next_pose}...")
-            UR5.move_robot(next_pose)
-            print("Robot moved to position!")
-
-            # UR5.go_home()
-            # print("Going home...")
+        for n in range(len(robot_joints)):
+            print(f"Robot joint {n}:")
+            UR5.move_robot(next_robot_joint=np.radians(robot_joints[str(n)]))
     except KeyboardInterrupt:
         print("Keyboard interrupt detected. Closing robot connection.")
     except Exception as e:
@@ -298,6 +328,25 @@ def test_robot_position():
 
 
 if __name__ == "__main__":
-    # visualize_robot_position()
 
-    test_robot_position()
+    from utils.utils import get_selection
+
+    # Create a UR5 robot controller
+    # ROBOT_IP = "192.168.2.144"  # URSim
+    ROBOT_IP = "192.168.2.196"  # UR5
+
+    s = {
+        "Visualize robot positions": visualize_robot_position,
+        "Test robot positions": test_robot_position,
+        "Test robot joints": test_robot_joint,
+    }
+
+    while True:
+        print("____________________________________________________________________")
+        selection = get_selection(
+            list(sorted(s.keys())), "Main Menu", with_exit=True, with_return=False
+        )
+        if selection == "exit":
+            break
+        else:
+            s[selection]()
