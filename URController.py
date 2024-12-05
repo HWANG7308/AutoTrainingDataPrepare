@@ -55,6 +55,8 @@ class UR5RobotController:
             math.radians(0),
         ]
 
+        self.init_position = self.home_position
+
         self.init_robot()
 
     def init_robot(self):
@@ -64,7 +66,7 @@ class UR5RobotController:
             host=self.robot_ip, robotModel=self.robot_model
         )
         self.robot.reset_error()
-        self.robot.movej(q=self.init_position_3, a=self.acc, v=self.vel)
+        self.robot.movej(q=self.init_position, a=self.acc, v=self.vel)
         self.robot.waitRobotIdleOrStopFlag()
         self.robot.init_realtime_control()
         time.sleep(0.5)
@@ -108,44 +110,64 @@ class UR5RobotController:
         j = self.get_joints(type=type)
         return np.all(np.abs(np.array(t) - j) < eps)
 
-    def move_robot(self, next_pose, type="j"):
+    def move_robot(
+        self, type="j", next_robot_joint=None, next_pose=None, joint_check=False
+    ):
 
-        self.check_joint_limit()
+        if next_robot_joint is not None:
+            print(f"Moving the robot joints to {np.degrees(next_robot_joint)}...")
+        elif next_pose is not None:
+            print(f"Moving the robot to pose: {next_pose}...")
 
-        # inv_kin = pose["inverse kinematic"]
-        # robot.set_realtime_pose(next_pose)
+        if joint_check:
+            self.check_joint_limit()
+
         if type == "j":
-            self.robot.movej(pose=next_pose)
+            self.robot.movej(q=next_robot_joint, pose=next_pose)
         elif type == "l":
-            self.robot.movel(pose=next_pose)
+            self.robot.movel(q=next_robot_joint, pose=next_pose)
         elif type == "p":
-            self.robot.movep(pose=next_pose)
+            self.robot.movep(q=next_robot_joint, pose=next_pose)
         else:
             raise TypeError("Only j, l, and p are allowed for moving type")
 
         self.robot.waitRobotIdleOrStopFlag()
-        return 1
+        robot_joint = self.get_joints()
+        print("Robot moved to position!")
+        return robot_joint
 
     def go_home(self):
+        print("Going to home position...")
         self.robot.movej(q=self.home_position, a=self.acc, v=self.vel)
         self.robot.waitRobotIdleOrStopFlag()
+        print("Robot moved to home position!")
+        return 1
+
+    def go_init(self):
+        print("Going to the initial position...")
+        self.robot.movej(q=self.init_position, a=self.acc, v=self.vel)
+        self.robot.waitRobotIdleOrStopFlag()
+        print("Robot moved to the initial position!")
         return 1
 
     def check_joint_limit(self):
+        print("Checking joint limits...")
         joints = self.get_joints()
         ranges = [(300, 360), (-360, -300)]
         if any(
             any(lower <= joint <= upper for lower, upper in ranges) for joint in joints
         ):
-            print("Approaching joint limits! Go back to home position...")
-            self.go_home()
-            self.robot.waitRobotIdleOrStopFlag()
+            print("Approaching joint limits!")
+            self.go_init()
 
         return 1
 
     def close(self):
         if self.robot:
+            print("Closing robot connection")
             self.robot.close()
+        else:
+            raise TypeError("No robot instance found!")
 
 
 if __name__ == "__main__":
