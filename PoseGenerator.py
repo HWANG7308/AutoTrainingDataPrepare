@@ -307,7 +307,7 @@ def test_robot_position(save_joints=False):
 
     if save_joints:
         print("Saving robot joints...")
-        with open("utils/robot_joints.json", "w") as f:
+        with open("../result/robot_joints/robot_joints.json", "w") as f:
             json.dump(robot_joints, f, indent=4)
         print("Robot joints saved!")
 
@@ -317,7 +317,7 @@ def test_robot_joint():
 
     UR5 = UR5RobotController(ROBOT_IP, acceleration=1, velocity=1)
 
-    with open("utils/robot_joints.json", "r") as f:
+    with open("../result/robot_joints/robot_joints.json", "r") as f:
         robot_joints = json.load(f)
 
     try:
@@ -337,8 +337,8 @@ if __name__ == "__main__":
     from utils import get_selection
 
     # Create a UR5 robot controller
-    ROBOT_IP = "192.168.2.144"  # URSim
-    # ROBOT_IP = "192.168.2.196"  # UR5
+    # ROBOT_IP = "192.168.2.144"  # URSim
+    ROBOT_IP = "192.168.2.196"  # UR5
 
     s = {
         "Visualize robot positions": visualize_robot_position,
