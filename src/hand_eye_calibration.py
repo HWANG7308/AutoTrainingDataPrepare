@@ -10,7 +10,7 @@ import math
 import math3d as m3d
 from PoseGenerator import PoseGenerator
 from URController import UR5RobotController
-from DepthCamera import D435
+from src.DepthCamera import D435
 
 
 def get_images(robot_poses, UR5, DC):

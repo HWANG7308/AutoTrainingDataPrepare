@@ -267,10 +267,10 @@ def visualize_robot_position():
     _ = PoseGenerator(T_rob2obj, T_end2cam).generate_positions(show_result=True)
 
 
-def test_robot_position():
+def test_robot_position(save_joints=False):
     from URController import UR5RobotController
 
-    UR5 = UR5RobotController(ROBOT_IP, 1, 1)
+    UR5 = UR5RobotController(ROBOT_IP, acceleration=1, velocity=1)
 
     T_rob2obj = m3d.Transform(
         m3d.Orientation.new_euler((math.pi / 2, 0, math.pi), "XYZ"),
@@ -285,13 +285,17 @@ def test_robot_position():
         T_rob2obj, T_end2cam  # , num_azi=36, num_polar=36
     ).generate_positions(change_first="azimuth")
 
-    robot_joints = {}
+    if save_joints:
+        robot_joints = {}
+
     try:
         for n, pose in enumerate(robot_poses):
             print(f"Pose {n}:")
             next_pose = pose.get("next pose")
-            robot_joint = UR5.move_robot(next_pose=next_pose)
-            robot_joints[str(n)] = robot_joint.tolist()
+            robot_joint = UR5.move_robot(pose=next_pose, return_joint=save_joints)
+
+            if save_joints:
+                robot_joints[str(n)] = robot_joint.tolist()
 
             UR5.go_init()
     except KeyboardInterrupt:
@@ -301,16 +305,17 @@ def test_robot_position():
     finally:
         UR5.robot.close()
 
-    print("Saving robot joints...")
-    with open("utils/robot_joints.json", "w") as f:
-        json.dump(robot_joints, f, indent=4)
-    print("Robot joints saved!")
+    if save_joints:
+        print("Saving robot joints...")
+        with open("utils/robot_joints.json", "w") as f:
+            json.dump(robot_joints, f, indent=4)
+        print("Robot joints saved!")
 
 
 def test_robot_joint():
     from URController import UR5RobotController
 
-    UR5 = UR5RobotController(ROBOT_IP, 1, 1)
+    UR5 = UR5RobotController(ROBOT_IP, acceleration=1, velocity=1)
 
     with open("utils/robot_joints.json", "r") as f:
         robot_joints = json.load(f)
@@ -318,7 +323,7 @@ def test_robot_joint():
     try:
         for n in range(len(robot_joints)):
             print(f"Robot joint {n}:")
-            UR5.move_robot(next_robot_joint=np.radians(robot_joints[str(n)]))
+            UR5.move_robot(pose=np.radians(robot_joints[str(n)]))
     except KeyboardInterrupt:
         print("Keyboard interrupt detected. Closing robot connection.")
     except Exception as e:
@@ -329,15 +334,18 @@ def test_robot_joint():
 
 if __name__ == "__main__":
 
-    from utils.utils import get_selection
+    from utils import get_selection
 
     # Create a UR5 robot controller
-    # ROBOT_IP = "192.168.2.144"  # URSim
-    ROBOT_IP = "192.168.2.196"  # UR5
+    ROBOT_IP = "192.168.2.144"  # URSim
+    # ROBOT_IP = "192.168.2.196"  # UR5
 
     s = {
         "Visualize robot positions": visualize_robot_position,
         "Test robot positions": test_robot_position,
+        "Test robot positions and save robot joints": test_robot_position(
+            save_joints=True
+        ),
         "Test robot joints": test_robot_joint,
     }
 
