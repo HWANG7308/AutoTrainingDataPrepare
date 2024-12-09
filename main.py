@@ -170,7 +170,7 @@ def acquire_new_data_from_object_with_joints():
         change_first="azimuth"
     )
 
-    with open("result/robot_joints/robot_joints_demo3.json", "r") as f:
+    with open("data/robot_joints_demo3.json", "r") as f:
         robot_joints = json.load(f)
 
     data_dir = os.path.join(root, "result/acquired_data")
