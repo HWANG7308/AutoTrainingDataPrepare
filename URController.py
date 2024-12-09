@@ -134,23 +134,22 @@ class UR5RobotController:
         """
         return np.all(np.abs(np.array(target) - self.get_joints(type=type)) < eps)
 
-    def move_robot(self, type="j", pose=None, check_joint=False, return_joint=False):
+    def move_robot(
+        self, type="j", pose=None, joint=None, check_joint=False, return_joint=False
+    ):
         """
         Move the robot to the specified pose.
 
         Parameters:
         type (str): The movement type ('j' for joint, 'l' for linear, 'p' for path).
-        pose (list): The target pose or joint positions.
+        pose (list): The target pose.
+        joint (list): The target joint positions.
         check_joint (bool): Whether to check joint limits before moving.
         return_joint (bool): Whether to return the joint positions after moving.
 
         Returns:
         int or np.ndarray: 1 if successful, or the joint positions if return_joint is True.
         """
-        if pose is None:
-            raise ValueError("No valid robot pose is given")
-        print(f"Moving the robot to pose: {pose}...")
-
         if check_joint:
             self.check_joint_limit()
 
@@ -162,7 +161,14 @@ class UR5RobotController:
         if move_func is None:
             raise ValueError("Invalid movement type. Use 'j', 'l', or 'p'.")
 
-        move_func(pose=pose)
+        if pose is not None:
+            print(f"Moving the robot to pose: {pose}...")
+        elif joint is not None:
+            print(f"Moving the robot joints to: {joint}...")
+        else:
+            raise ValueError("No valid robot pose/joint position is given")
+
+        move_func(q=joint, pose=pose)
         time.sleep(0.5)
         print("Robot moved to position!")
 
