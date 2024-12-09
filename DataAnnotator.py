@@ -34,7 +34,9 @@ class Annotator2DBBox:
 
         self.annotation = {}
 
-    def remove_bkg_chroma_key(self, white_range=(100, 255), show_result=False):
+    def remove_bkg_chroma_key(
+        self, white_range=(100, 255), show_result=False, save_result=False
+    ):
         """extract the object in the foreground based on chroma key"""
 
         # HSV space
@@ -64,14 +66,19 @@ class Annotator2DBBox:
             cv2.imshow("Result of background removal based on chroma key", rgba_image)
             cv2.waitKey(0)
             cv2.destroyAllWindows()
-            # cv2.imwrite(
-            #     "Result of background removal based on chroma key.png", rgba_image
-            # )
+
+        if save_result:
+            cv2.imwrite(
+                self.color_img_path.replace(
+                    "acquired_data", "annotated_data/remove_bkg_chroma_key"
+                ),
+                rgba_image,
+            )
 
         return rgba_image
 
     def remove_bkg_depth_value(
-        self, clipping_distance_in_meters=0.3, show_result=False
+        self, clipping_distance_in_meters=0.3, show_result=False, save_result=False
     ):
         """
         Remove background based on depth value
@@ -96,9 +103,17 @@ class Annotator2DBBox:
             cv2.waitKey(0)
             cv2.destroyAllWindows()
 
+        if save_result:
+            cv2.imwrite(
+                self.color_img_path.replace(
+                    "acquired_data", "annotated_data/remove_bkg_depth_value"
+                ),
+                bg_removed,
+            )
+
         return bg_removed
 
-    def annotate(self, show_result=False):
+    def annotate(self, show_result=False, save_result=False):
         """Draw 2D BBox (rectangle) around the object given the result of chroma_key(raw_rgb_img)"""
         image = self.remove_bkg_chroma_key()
 
@@ -138,12 +153,17 @@ class Annotator2DBBox:
         if annotations:
             self.annotation = annotations[0]
 
-        if show_result:
-            self.visualize_2dbbox()
+        vis = self.visualize_2dbbox(show_result=show_result, return_vis=save_result)
+
+        if save_result:
+            cv2.imwrite(
+                self.color_img_path.replace("acquired_data", "annotated_data/2dbbox"),
+                vis,
+            )
 
         return annotations
 
-    def visualize_2dbbox(self):
+    def visualize_2dbbox(self, show_result=False, return_vis=False):
         img = self.color_img_rgb.copy()
         annotation = self.annotation
 
@@ -151,13 +171,17 @@ class Annotator2DBBox:
             shape = annotation.get("shapes")[0]
             [x_min, y_min] = shape.get("points")[0]
             [x_max, y_max] = shape.get("points")[1]
-
             cv2.rectangle(img, (x_min, y_min), (x_max, y_max), (255, 0, 0), 2)
+
+        if show_result:
             cv2.imshow("2D BBox annotation", img)
             cv2.waitKey(0)
             cv2.destroyAllWindows()
 
-            # cv2.imwrite("2D BBox annotation.png", img)
+        if return_vis:
+            return img
+
+        return 1
 
 
 class Annotator6DPose:
@@ -202,7 +226,7 @@ class Annotator6DPose:
 
         self.annotation = {}
 
-    def annotate(self, show_result=False):
+    def annotate(self, show_result=False, save_result=False):
         """
         Generate the 6D pose annotation given meta data
         """
@@ -215,14 +239,19 @@ class Annotator6DPose:
             "img_width": self.color_img_bgr.shape[1],
         }  # TODO: fix the annotation format
 
-        if show_result:
-            self.visualize_6dpose()
-
         self.annotation = annotation
+
+        vis = self.visualize_6dpose(show_result=show_result, return_vis=save_result)
+
+        if save_result:
+            cv2.imwrite(
+                self.color_img_path.replace("acquired_data", "annotated_data/6dpose"),
+                vis,
+            )
 
         return annotation
 
-    def visualize_6dpose(self):
+    def visualize_6dpose(self, show_result=False, return_vis=False):
         """Draw xyz-axis"""
         color = self.color_img_bgr.copy()
 
@@ -235,11 +264,15 @@ class Annotator6DPose:
             transparency=0,
         )
 
-        cv2.imshow("6D pose annotation", vis)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+        if show_result:
+            cv2.imshow("6D pose annotation", vis)
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
 
-        # cv2.imwrite("6D pose annotation.png", vis)
+        if return_vis:
+            return vis
+
+        return 1
 
     def project_3d_to_2d(self, pt, K, ob_in_cam):
         """
@@ -340,6 +373,10 @@ class Annotator3DBBox:
         # if self.depth_img is None:
         #     raise FileNotFoundError(f"Depth image not found at {self.depth_img_path}")
 
+        # TODO fix these two following values
+        self.annotation_top = None
+        self.annotation_front = None
+
         with open(self.meta_path, "r") as f:
             self.meta = json.load(f)
 
@@ -388,10 +425,21 @@ class Annotator3DBBox:
 
         return oriented_3dbbox
 
-    def annotate(self):
-        raise NotImplementedError("The annotate method is not implemented yet.")
+    def annotate(self, show_result=False, save_result=False):
 
-    def visualize_3dbbox(self, oriented_3dbbox):
+        oriented_3dbbox = self.reconstruct_oriented_3dbbox(
+            self.annotation_top, self.annotation_front
+        )
+
+        vis = self.visualize_3dbbox(oriented_3dbbox, show_result, save_result)
+
+        if save_result:
+            cv2.imwrite(
+                self.color_img_path.replace("acquired_data", "annotated_data/3dbbox"),
+                vis,
+            )
+
+    def visualize_3dbbox(self, oriented_3dbbox, show_result=False, return_vis=False):
         """Visualize 3D bounding box"""
         color = self.color_img_bgr.copy()
 
@@ -402,11 +450,15 @@ class Annotator3DBBox:
             K=self.cam_K,
         )
 
-        cv2.imshow("3D bounding box", vis)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+        if show_result:
+            cv2.imshow("3D bounding box", vis)
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
 
-        # cv2.imwrite("3D bounding box.png", vis)
+        if return_vis:
+            return vis
+
+        return 1
 
     def to_homo(self, pts):
         """
@@ -475,6 +527,7 @@ class Annotator3DBBox:
 class AnnotatorImgSeg:
     def __init__(self):
         self.annotation = {}
+        raise NotImplementedError("The annotate method is not implemented yet.")
 
     def annotate(self):
         """
