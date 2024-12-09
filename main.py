@@ -69,7 +69,7 @@ def acquire_new_data_from_object():
     names = list(os.listdir(data_dir))
 
     while True:
-        print("____________________________________________________________________")
+        print("\n" + "_" * 70)
         name = input("Enter name of the new object: ")
         if name in names:
             print(
@@ -124,7 +124,7 @@ def acquire_new_data_from_object_demo():
     names = list(os.listdir(data_dir))
 
     while True:
-        print("____________________________________________________________________")
+        print("\n" + "_" * 70)
         name = input("Enter name of the new object: ")
         if name in names:
             print(
@@ -156,6 +156,61 @@ def acquire_new_data_from_object_demo():
         DC.pipe.stop()
 
 
+def acquire_new_data_from_object_with_joints():
+    """
+    Acquire new images from an object by taking images with given robot joint positions.
+    TODO fix this function
+    """
+    import numpy as np
+
+    UR5 = UR5RobotController(ROBOT_IP)
+    DC = D435()
+
+    robot_poses = PoseGenerator(T_rob2obj, T_end2cam).generate_positions(
+        change_first="azimuth"
+    )
+
+    with open("result/robot_joints/robot_joints_demo3.json", "r") as f:
+        robot_joints = json.load(f)
+
+    data_dir = os.path.join(root, "result/acquired_data")
+    os.makedirs(data_dir, exist_ok=True)
+
+    names = list(os.listdir(data_dir))
+
+    while True:
+        print("\n" + "_" * 70)
+        name = input("Enter name of the new object: ")
+        if name in names:
+            print(
+                f"An object with the name, {name}, already exists. Please find a different name."
+            )
+            continue
+        print("Current name is:", name)
+        break
+
+    data_save_dir = os.path.join(data_dir, name)
+    print("Saving data to:", data_save_dir)
+    os.makedirs(data_save_dir, exist_ok=True)
+
+    try:
+        for n, pose in enumerate(robot_poses):
+            print(f"Robot joint {n}:", robot_joints.get(str(n)))
+            while not UR5.at_target(robot_joints.get(str(n))):
+                UR5.move_robot(joint=np.radians(robot_joints.get(str(n))))
+            print("Getting data from the camera...")
+            out = DC.get_frames(return_intrinsics=True, with_repair=False)
+            save_data_sample(data_save_dir, n, name, pose, out, UR5)
+    except KeyboardInterrupt:
+        print("Keyboard interrupt detected. Closing connections.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+    finally:
+        UR5.robot.close()
+        print("Closing camera")
+        DC.pipe.stop()
+
+
 def save_annotations(data_save_dir, n, annotations):
     """
     Save the annotations to a JSON file.
@@ -165,6 +220,7 @@ def save_annotations(data_save_dir, n, annotations):
     n (int): Index of the current sample.
     annotations (dict): Annotations to save.
     """
+    os.makedirs(data_save_dir, exist_ok=True)
     with open(os.path.join(data_save_dir, f"meta_{n:06d}.json"), "w") as f:
         json.dump(annotations, f, indent=4)
     print("Data annotation saved!")
@@ -179,39 +235,44 @@ def create_labels(annotation_type):
     """
     raw_data_dir = os.path.join(root, "result/acquired_data")
     data_save_dir = os.path.join(root, "result/annotated_data")
-    os.makedirs(data_save_dir, exist_ok=True)
 
     names = list(os.listdir(raw_data_dir))
 
-    for n, name in enumerate(names):
-        color_img_path = os.path.join(raw_data_dir, name, f"color_{n:06d}.png")
-        depth_img_path = os.path.join(
-            os.path.dirname(color_img_path),
-            os.path.basename(color_img_path).replace("color", "depth"),
-        )
-        meta_path_ = os.path.join(
-            os.path.dirname(color_img_path),
-            os.path.basename(color_img_path).replace("color", "meta"),
-        )
-        meta_path = os.path.splitext(meta_path_)[0] + ".json"
-
-        if annotation_type == "2dbbox":
-            annotator = Annotator2DBBox(color_img_path, depth_img_path, meta_path)
-            _ = annotator.remove_bkg_chroma_key(show_result=True)
-            annotations = annotator.annotate(show_result=True)
-        elif annotation_type == "6dpose":
-            annotator = Annotator6DPose(color_img_path, depth_img_path, meta_path)
-            annotations = annotator.annotate(show_result=True)
-        elif annotation_type == "3dbbox":
-            raise ValueError("Yet to be merged")  # TODO merge the function
-        elif annotation_type == "img_seg":
-            raise ValueError("Yet to be merged")  # TODO merge the function
-        else:
-            raise ValueError(
-                "Invalid annotation type. Use '2dbbox', '6dpose', '3dbbox', or 'img_seg'."
+    for _, name in enumerate(names):
+        file_names = list(os.listdir(os.path.join(raw_data_dir, name)))
+        color_imgs = [file for file in file_names if "color_" in file]
+        for m, color_img in enumerate(color_imgs):
+            # color_img_path = os.path.join(raw_data_dir, name, f"color_{m:06d}.png")
+            color_img_path = os.path.join(raw_data_dir, name, color_img)
+            depth_img_path = os.path.join(
+                os.path.dirname(color_img_path),
+                os.path.basename(color_img_path).replace("color", "depth"),
             )
+            meta_path_ = os.path.join(
+                os.path.dirname(color_img_path),
+                os.path.basename(color_img_path).replace("color", "meta"),
+            )
+            meta_path = os.path.splitext(meta_path_)[0] + ".json"
 
-        save_annotations(data_save_dir, n, annotations)
+            if annotation_type == "2dbbox":
+                annotator = Annotator2DBBox(color_img_path, depth_img_path, meta_path)
+                _ = annotator.remove_bkg_chroma_key(save_result=True)
+                annotations = annotator.annotate(save_result=True)
+            elif annotation_type == "6dpose":
+                annotator = Annotator6DPose(color_img_path, depth_img_path, meta_path)
+                annotations = annotator.annotate(save_result=True)
+            elif annotation_type == "3dbbox":
+                raise ValueError("Yet to be merged")  # TODO merge the function
+            elif annotation_type == "img_seg":
+                raise ValueError("Yet to be merged")  # TODO merge the function
+            else:
+                raise ValueError(
+                    "Invalid annotation type. Use '2dbbox', '6dpose', '3dbbox', or 'img_seg'."
+                )
+
+            save_annotations(
+                os.path.join(data_save_dir, name, annotation_type), m, annotations
+            )
 
 
 def create_labels_2dbbox():
@@ -361,7 +422,8 @@ def perform_hand_eye_calibration():
 def main():
     s = {
         "Acquire New Data from Object": acquire_new_data_from_object,
-        "Acquire New Data From Object (Demo)": acquire_new_data_from_object_demo,
+        "Acquire New Data from Object (Demo)": acquire_new_data_from_object_demo,
+        "Acquire New Data from Object with Given Robot Joint Positions": acquire_new_data_from_object_with_joints,
         "Create Labels (2D BBox)": create_labels_2dbbox,
         "Create Labels (6D Pose)": create_labels_6dpose,
         "Create Labels (3D BBox)": create_labels_3dbbox,
@@ -375,7 +437,7 @@ def main():
     }
 
     while True:
-        print("____________________________________________________________________")
+        print("\n" + "_" * 70)
         selection = get_selection(
             list(sorted(s.keys())), "Main Menu", with_exit=True, with_return=False
         )
