@@ -267,7 +267,7 @@ def visualize_robot_position():
     _ = PoseGenerator(T_rob2obj, T_end2cam).generate_positions(show_result=True)
 
 
-def test_robot_position(save_joints=False):
+def test_robot_position(save_joints=True):
     from URController import UR5RobotController
 
     UR5 = UR5RobotController(ROBOT_IP, acceleration=1, velocity=1)
@@ -279,25 +279,57 @@ def test_robot_position(save_joints=False):
     T_end2cam = m3d.Transform(
         m3d.Orientation.new_rotation_vector((0, 0, 0)), m3d.Vector(0, 0, 0.05)
     )
-
-    # Generate the end effector positions to capture object images from various defined views
     robot_poses = PoseGenerator(
         T_rob2obj, T_end2cam  # , num_azi=36, num_polar=36
     ).generate_positions(change_first="azimuth")
 
-    if save_joints:
-        robot_joints = {}
+    robot_joints = {} if save_joints else None
 
+    return_init_index = [16, 17, 32, 41, 44, 59, 76]
     try:
         for n, pose in enumerate(robot_poses):
-            print(f"Pose {n}:")
+            print("\n" + "_" * 70)
+
+            while True:
+                if n in return_init_index:
+                    UR5.go_init()
+                m = input("Go to next position? ['y': yes, 'n': back to init]")
+                if m == "y":
+                    print("Move on")
+                    break
+                elif m == "n":
+                    UR5.go_init()
+
             next_pose = pose.get("next pose")
+            print(f"Pose {n}: {next_pose}")
+
+            target_joints = np.degrees(UR5.robot.get_inverse_kin(next_pose))
+            print(f"Target robot joints: {target_joints}")
+
             robot_joint = UR5.move_robot(pose=next_pose, return_joint=save_joints)
+            print(f"Current robot joints: {robot_joint}")
+
+            while True:
+                r = input("Redo the move? ['y': yes, 'n': no]")
+                if r == "y":
+                    robot_joint = UR5.move_robot(
+                        pose=next_pose, return_joint=save_joints
+                    )
+                elif r == "n":
+                    break
+
+            # at_target = np.all(np.abs(np.array(target_joints) - robot_joint) < 0.02)
+            # print(f"Robot at target joint positions? {at_target}")
+            # while not at_target:
+            #     print("Not yet...")
+            #     robot_joint = UR5.move_robot(pose=next_pose, return_joint=save_joints)
+            #     at_target = np.all(np.abs(np.array(target_joints) - robot_joint) < 0.02)
+
+            # print(f"Robot at target joint positions!")
 
             if save_joints:
-                robot_joints[str(n)] = robot_joint.tolist()
+                robot_joints[n] = robot_joint.tolist()
 
-            UR5.go_init()
     except KeyboardInterrupt:
         print("Keyboard interrupt detected. Closing robot connection.")
     except Exception as e:
@@ -307,7 +339,7 @@ def test_robot_position(save_joints=False):
 
     if save_joints:
         print("Saving robot joints...")
-        with open("../result/robot_joints/robot_joints.json", "w") as f:
+        with open("result/robot_joints/robot_joints.json", "w") as f:
             json.dump(robot_joints, f, indent=4)
         print("Robot joints saved!")
 
@@ -317,13 +349,14 @@ def test_robot_joint():
 
     UR5 = UR5RobotController(ROBOT_IP, acceleration=1, velocity=1)
 
-    with open("../result/robot_joints/robot_joints.json", "r") as f:
+    with open("result/robot_joints/robot_joints_demo3.json", "r") as f:
         robot_joints = json.load(f)
 
     try:
         for n in range(len(robot_joints)):
-            print(f"Robot joint {n}:")
-            UR5.move_robot(pose=np.radians(robot_joints[str(n)]))
+            print(f"Robot joint {n}:", robot_joints.get(str(n)))
+            while not UR5.at_target(robot_joints.get(str(n))):
+                UR5.move_robot(joint=np.radians(robot_joints.get(str(n))))
     except KeyboardInterrupt:
         print("Keyboard interrupt detected. Closing robot connection.")
     except Exception as e:
@@ -343,14 +376,11 @@ if __name__ == "__main__":
     s = {
         "Visualize robot positions": visualize_robot_position,
         "Test robot positions": test_robot_position,
-        "Test robot positions and save robot joints": test_robot_position(
-            save_joints=True
-        ),
         "Test robot joints": test_robot_joint,
     }
 
     while True:
-        print("____________________________________________________________________")
+        print("\n" + "_" * 70)
         selection = get_selection(
             list(sorted(s.keys())), "Main Menu", with_exit=True, with_return=False
         )
