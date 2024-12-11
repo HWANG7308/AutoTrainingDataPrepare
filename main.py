@@ -42,7 +42,7 @@ def save_data_sample(data_save_dir, n, name, pose, out, UR5):
     }
 
     for dir_path in save_dir.keys():
-        os.makedirs(dir_path, exist_ok=True)
+        os.makedirs(save_dir.get(dir_path), exist_ok=True)
 
     cv2.imwrite(
         os.path.join(save_dir.get("color_img_dir"), f"color_{n:06d}.png"),
@@ -298,14 +298,14 @@ def create_labels_2dbbox():
     """
     Create 2D bounding box labels for the acquired data.
     """
-    create_labels("2dbbox")
+    create_labels("2dbbox", save_vis=True)
 
 
 def create_labels_6dpose():
     """
     Create 6D pose labels for the acquired data.
     """
-    create_labels("6dpose")
+    create_labels("6dpose", save_vis=True)
 
 
 def create_labels_3dbbox():
