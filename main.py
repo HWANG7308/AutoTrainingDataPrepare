@@ -14,7 +14,7 @@ import datetime
 import math
 import math3d as m3d
 import cv2
-import hand_eye_calibration
+import HandEyeCalibration
 from PoseGenerator import PoseGenerator
 from URController import UR5RobotController
 from DepthCamera import D435
@@ -34,8 +34,24 @@ def save_data_sample(data_save_dir, n, name, pose, out, UR5):
     out (dict): Output from the depth camera.
     UR5 (UR5RobotController): The robot controller instance.
     """
-    cv2.imwrite(os.path.join(data_save_dir, f"color_{n:06d}.png"), out.get("color"))
-    cv2.imwrite(os.path.join(data_save_dir, f"depth_{n:06d}.png"), out.get("depth"))
+
+    save_dir = {
+        "color_img_dir": os.path.join(data_save_dir, "color"),
+        "depth_img_dir": os.path.join(data_save_dir, "depth"),
+        "meta_info_dir": os.path.join(data_save_dir, "meta"),
+    }
+
+    for dir_path in save_dir.keys():
+        os.makedirs(dir_path, exist_ok=True)
+
+    cv2.imwrite(
+        os.path.join(save_dir.get("color_img_dir"), f"color_{n:06d}.png"),
+        out.get("color"),
+    )
+    cv2.imwrite(
+        os.path.join(save_dir.get("depth_img_dir"), f"depth_{n:06d}.png"),
+        out.get("depth"),
+    )
     meta = {
         "class": name,
         "time": datetime.datetime.today().strftime("%Y-%m-%d, %H:%M:%S"),
@@ -45,10 +61,13 @@ def save_data_sample(data_save_dir, n, name, pose, out, UR5):
         "tf_rob2end": pose.get("T_rob2end").get_matrix().tolist(),
         "intrinsics_color": out.get("color_intr"),
         "depth_scale": out.get("depth_scale"),
-        # "hand_eye_calibration": None  # TODO fix the hand-eye calibration
+        "hand_eye_calibration": T_end2cam.get_matrix().tolist(),
     }
-    with open(os.path.join(data_save_dir, f"meta_{n:06d}.json"), "w") as f:
+    with open(
+        os.path.join(save_dir.get("meta_info_dir"), f"meta_{n:06d}.json"), "w"
+    ) as f:
         json.dump(meta, f, indent=4)
+
     print("Data sample saved!")
 
 
@@ -67,7 +86,6 @@ def acquire_new_data_from_object():
     os.makedirs(data_dir, exist_ok=True)
 
     names = list(os.listdir(data_dir))
-
     while True:
         print("\n" + "_" * 70)
         name = input("Enter name of the new object: ")
@@ -80,8 +98,8 @@ def acquire_new_data_from_object():
         break
 
     data_save_dir = os.path.join(data_dir, name)
-    print("Saving data to:", data_save_dir)
     os.makedirs(data_save_dir, exist_ok=True)
+    print("Saving data to:", data_save_dir)
 
     try:
         for n, pose in enumerate(robot_poses):
@@ -91,7 +109,7 @@ def acquire_new_data_from_object():
             print("Getting data from the camera...")
             out = DC.get_frames(return_intrinsics=True, with_repair=False)
             save_data_sample(data_save_dir, n, name, pose, out, UR5)
-            UR5.go_init()
+            # UR5.go_init() #TODO find a way to optimize the robot path otherwise go back to initial position every time
     except KeyboardInterrupt:
         print("Keyboard interrupt detected. Closing connections.")
     except Exception as e:
@@ -226,7 +244,7 @@ def save_annotations(data_save_dir, n, annotations):
     print("Data annotation saved!")
 
 
-def create_labels(annotation_type):
+def create_labels(annotation_type, save_vis=False):
     """
     Create labels for the acquired data.
 
@@ -239,28 +257,27 @@ def create_labels(annotation_type):
     names = list(os.listdir(raw_data_dir))
 
     for _, name in enumerate(names):
-        file_names = list(os.listdir(os.path.join(raw_data_dir, name)))
-        color_imgs = [file for file in file_names if "color_" in file]
-        for m, color_img in enumerate(color_imgs):
-            # color_img_path = os.path.join(raw_data_dir, name, f"color_{m:06d}.png")
-            color_img_path = os.path.join(raw_data_dir, name, color_img)
-            depth_img_path = os.path.join(
-                os.path.dirname(color_img_path),
-                os.path.basename(color_img_path).replace("color", "depth"),
-            )
-            meta_path_ = os.path.join(
-                os.path.dirname(color_img_path),
-                os.path.basename(color_img_path).replace("color", "meta"),
-            )
+        color_img_dir = os.path.join(raw_data_dir, name, "color")
+        color_imgs = list(os.listdir(color_img_dir))
+        for n, color_img in enumerate(color_imgs):
+            color_img_path = os.path.join(color_img_dir, color_img)
+            depth_img_path = color_img_path.replace("color", "depth")
+            meta_path_ = color_img_path.replace("color", "meta")
             meta_path = os.path.splitext(meta_path_)[0] + ".json"
+
+            save_vis_dir = (
+                os.path.join(data_save_dir, name, annotation_type, "vis")
+                if save_vis
+                else None
+            )
 
             if annotation_type == "2dbbox":
                 annotator = Annotator2DBBox(color_img_path, depth_img_path, meta_path)
-                _ = annotator.remove_bkg_chroma_key(save_result=True)
-                annotations = annotator.annotate(save_result=True)
+                _ = annotator.remove_bkg_chroma_key(save_vis_dir=save_vis_dir)
+                annotations = annotator.annotate(save_vis_dir=save_vis_dir)
             elif annotation_type == "6dpose":
                 annotator = Annotator6DPose(color_img_path, depth_img_path, meta_path)
-                annotations = annotator.annotate(save_result=True)
+                annotations = annotator.annotate(save_vis_dir=save_vis_dir)
             elif annotation_type == "3dbbox":
                 raise ValueError("Yet to be merged")  # TODO merge the function
             elif annotation_type == "img_seg":
@@ -271,7 +288,9 @@ def create_labels(annotation_type):
                 )
 
             save_annotations(
-                os.path.join(data_save_dir, name, annotation_type), m, annotations
+                os.path.join(data_save_dir, name, annotation_type, "label"),
+                n,
+                annotations,
             )
 
 
@@ -408,13 +427,11 @@ def perform_hand_eye_calibration():
         T_rob2obj, T_end2cam
     ).generate_positions_hand_eye_calibration()
 
-    images = hand_eye_calibration.get_images(robot_poses, UR5, DC)
+    images = HandEyeCalibration.get_images(robot_poses, UR5, DC)
 
-    camera_poses = hand_eye_calibration.get_camera_poses(
-        images, DC, method="chessboard"
-    )
+    camera_poses = HandEyeCalibration.get_camera_poses(images, DC, method="chessboard")
 
-    T_end2cam_calib = hand_eye_calibration(robot_poses, camera_poses)
+    T_end2cam_calib = HandEyeCalibration(robot_poses, camera_poses)
 
     print("Calibrated T_end2cam:\n", T_end2cam_calib)
 
