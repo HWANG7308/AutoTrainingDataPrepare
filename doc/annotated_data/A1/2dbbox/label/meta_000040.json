@@ -1,0 +1,22 @@
+[
+    {
+        "shapes": [
+            {
+                "points": [
+                    [
+                        289,
+                        226
+                    ],
+                    [
+                        370,
+                        274
+                    ]
+                ],
+                "shape_type": "rectangle"
+            }
+        ],
+        "img_path": "color_000040.png",
+        "img_height": 480,
+        "img_width": 640
+    }
+]
