@@ -35,9 +35,19 @@ class Annotator2DBBox:
         self.annotation = {}
 
     def remove_bkg_chroma_key(
-        self, white_range=(100, 255), show_result=False, save_result=False
+        self,
+        white_range=(100, 255),
+        show_result=False,
+        save_vis_dir=None,
     ):
-        """extract the object in the foreground based on chroma key"""
+        """
+        Extract the object in the foreground based on chroma key
+
+        Parameters:
+        white_range (tuple): the grayscale range to be determined as white background.
+        show_result (bool): Indicator of showing the visualization or not.
+        save_vis_dir (str): The directory for saving the visualization.
+        """
 
         # HSV space
         """
@@ -67,18 +77,24 @@ class Annotator2DBBox:
             cv2.waitKey(0)
             cv2.destroyAllWindows()
 
-        if save_result:
+        if save_vis_dir is not None:
+            save_dir = os.path.join(save_vis_dir, "remove_bkg_chroma_key")
+            os.makedirs(save_dir, exist_ok=True)
+            filename = os.path.basename(self.color_img_path).replace(
+                "color", "remove_bkg_chroma_key"
+            )
             cv2.imwrite(
-                self.color_img_path.replace(
-                    "acquired_data", "annotated_data/remove_bkg_chroma_key"
-                ),
-                rgba_image,
+                os.path.join(save_dir, filename),
+                cv2.cvtColor(rgba_image, cv2.COLOR_BGR2RGB),
             )
 
         return rgba_image
 
     def remove_bkg_depth_value(
-        self, clipping_distance_in_meters=0.3, show_result=False, save_result=False
+        self,
+        clipping_distance_in_meters=0.3,
+        show_result=False,
+        save_vis_dir=None,
     ):
         """
         Remove background based on depth value
@@ -103,17 +119,20 @@ class Annotator2DBBox:
             cv2.waitKey(0)
             cv2.destroyAllWindows()
 
-        if save_result:
+        if save_vis_dir is not None:
+            save_dir = os.path.join(save_vis_dir, "remove_bkg_depth_value")
+            os.makedirs(save_dir, exist_ok=True)
+            filename = os.path.basename(self.color_img_path).replace(
+                "color", "remove_bkg_depth_value"
+            )
             cv2.imwrite(
-                self.color_img_path.replace(
-                    "acquired_data", "annotated_data/remove_bkg_depth_value"
-                ),
-                bg_removed,
+                os.path.join(save_dir, filename),
+                cv2.cvtColor(bg_removed, cv2.COLOR_BGR2RGB),
             )
 
         return bg_removed
 
-    def annotate(self, show_result=False, save_result=False):
+    def annotate(self, show_result=False, save_vis_dir=None):
         """Draw 2D BBox (rectangle) around the object given the result of chroma_key(raw_rgb_img)"""
         image = self.remove_bkg_chroma_key()
 
@@ -153,17 +172,20 @@ class Annotator2DBBox:
         if annotations:
             self.annotation = annotations[0]
 
-        vis = self.visualize_2dbbox(show_result=show_result, return_vis=save_result)
+        vis = self.visualize_2dbbox(show_result)
 
-        if save_result:
+        if save_vis_dir is not None:
+            save_dir = os.path.join(save_vis_dir, "2dbbox")
+            os.makedirs(save_dir, exist_ok=True)
+            filename = os.path.basename(self.color_img_path).replace("color", "2dbbox")
             cv2.imwrite(
-                self.color_img_path.replace("acquired_data", "annotated_data/2dbbox"),
-                vis,
+                os.path.join(save_dir, filename),
+                cv2.cvtColor(vis, cv2.COLOR_BGR2RGB),
             )
 
         return annotations
 
-    def visualize_2dbbox(self, show_result=False, return_vis=False):
+    def visualize_2dbbox(self, show=False):
         img = self.color_img_rgb.copy()
         annotation = self.annotation
 
@@ -173,15 +195,12 @@ class Annotator2DBBox:
             [x_max, y_max] = shape.get("points")[1]
             cv2.rectangle(img, (x_min, y_min), (x_max, y_max), (255, 0, 0), 2)
 
-        if show_result:
+        if show:
             cv2.imshow("2D BBox annotation", img)
             cv2.waitKey(0)
             cv2.destroyAllWindows()
 
-        if return_vis:
-            return img
-
-        return 1
+        return img
 
 
 class Annotator6DPose:
@@ -226,7 +245,7 @@ class Annotator6DPose:
 
         self.annotation = {}
 
-    def annotate(self, show_result=False, save_result=False):
+    def annotate(self, show_result=False, save_vis_dir=None):
         """
         Generate the 6D pose annotation given meta data
         """
@@ -241,17 +260,20 @@ class Annotator6DPose:
 
         self.annotation = annotation
 
-        vis = self.visualize_6dpose(show_result=show_result, return_vis=save_result)
+        vis = self.visualize_6dpose(show_result)
 
-        if save_result:
+        if save_vis_dir is not None:
+            save_dir = os.path.join(save_vis_dir, "6dpose")
+            os.makedirs(save_dir, exist_ok=True)
+            filename = os.path.basename(self.color_img_path).replace("color", "6dpose")
             cv2.imwrite(
-                self.color_img_path.replace("acquired_data", "annotated_data/6dpose"),
+                os.path.join(save_dir, filename),
                 vis,
             )
 
         return annotation
 
-    def visualize_6dpose(self, show_result=False, return_vis=False):
+    def visualize_6dpose(self, show=False):
         """Draw xyz-axis"""
         color = self.color_img_bgr.copy()
 
@@ -264,15 +286,12 @@ class Annotator6DPose:
             transparency=0,
         )
 
-        if show_result:
+        if show:
             cv2.imshow("6D pose annotation", vis)
             cv2.waitKey(0)
             cv2.destroyAllWindows()
 
-        if return_vis:
-            return vis
-
-        return 1
+        return vis
 
     def project_3d_to_2d(self, pt, K, ob_in_cam):
         """
