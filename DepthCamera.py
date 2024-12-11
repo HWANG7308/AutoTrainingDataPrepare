@@ -1,5 +1,7 @@
 """
-Adapt from https://github.com/KochPJ/AutoPoseEstimation/blob/main/depth_camera/DepthCam.py
+Adapt from
+https://github.com/IntelRealSense/librealsense
+https://github.com/KochPJ/AutoPoseEstimation/blob/main/depth_camera/DepthCam.py
 """
 
 import pyrealsense2 as rs
@@ -12,6 +14,7 @@ class D435:
     """
     Intel RealSense depth camera D435
     """
+
     def __init__(
         self,
         fps=30,
@@ -28,6 +31,9 @@ class D435:
 
         self.pipe = rs.pipeline()
         self.config = rs.config()
+
+        self.check_rgb_sensor()
+
         self.align = rs.align(rs.stream.color)
         self.colorizer = rs.colorizer()
         self.repairing = False
@@ -52,10 +58,24 @@ class D435:
         self.profile = self.pipe.start(self.config)
         self.depth_sensor = self.profile.get_device().first_depth_sensor()
         self.color_sensor = self.profile.get_device().query_sensors()[1]
+        self.set_color_sensor_options()
+
+    def set_color_sensor_options(self):
         self.color_sensor.set_option(rs.option.enable_auto_white_balance, False)
         self.color_sensor.set_option(rs.option.enable_auto_exposure, False)
         self.color_sensor.set_option(rs.option.exposure, 200.0)
         self.color_sensor.set_option(rs.option.white_balance, 3200.0)
+
+    def check_rgb_sensor(self):
+        pipeline_wrapper = rs.pipeline_wrapper(self.pipe)
+        pipeline_profile = self.config.resolve(pipeline_wrapper)
+        device = pipeline_profile.get_device()
+
+        found_rgb = any(
+            s.get_info(rs.camera_info.name) == "RGB Camera" for s in device.sensors
+        )
+        if not found_rgb:
+            raise ValueError("Color sensor is required but not found!")
 
     def stream(
         self,
@@ -99,9 +119,7 @@ class D435:
                     frames = self.align.process(frames)
                     out = {"frames": frames}
                     if return_intrinsics:
-                        out["color_intr"] = self.get_color_intrinsics()
-                        out["depth_intr"] = self.get_depth_intrinsics()
-                        out["depth_scale"] = self.get_depth_scale()
+                        out.update(self.get_intrinsics())
 
                     color = np.array(frames.get_color_frame().get_data())
                     depth = np.array(frames.get_depth_frame().get_data())
@@ -131,6 +149,13 @@ class D435:
                     except Exception as e:
                         print(f"Pipeline initialization failed: {e}")
                         time.sleep(1)
+
+    def get_intrinsics(self):
+        return {
+            "color_intr": self.get_color_intrinsics(),
+            "depth_intr": self.get_depth_intrinsics(),
+            "depth_scale": self.get_depth_scale(),
+        }
 
     def get_color_intrinsics(self):
         color_intr_ = (
