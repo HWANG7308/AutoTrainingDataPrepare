@@ -10,6 +10,7 @@ License: MIT License
 import os
 import json
 from pathlib import Path
+import time
 import datetime
 import math
 import math3d as m3d
@@ -181,6 +182,10 @@ def acquire_new_data_from_object_with_joints():
     """
     import numpy as np
 
+    robot_time = 0.0
+    camera_time = 0.0
+    save_img_time = 0.0
+
     UR5 = UR5RobotController(ROBOT_IP)
     DC = D435()
 
@@ -214,11 +219,24 @@ def acquire_new_data_from_object_with_joints():
     try:
         for n, pose in enumerate(robot_poses):
             print(f"Robot joint {n}:", robot_joints.get(str(n)))
+
+            robot_start_time = time.time()
             while not UR5.at_target(robot_joints.get(str(n))):
                 UR5.move_robot(joint=np.radians(robot_joints.get(str(n))))
+            robot_end_time = time.time()
+            robot_time += robot_end_time - robot_start_time
+
             print("Getting data from the camera...")
+            camera_start_time = time.time()
             out = DC.get_frames(return_intrinsics=True, with_repair=False)
+            camera_end_time = time.time()
+            camera_time += camera_end_time - camera_start_time
+
+            save_img_start_time = time.time()
             save_data_sample(data_save_dir, n, name, pose, out, UR5)
+            save_img_end_time = time.time()
+            save_img_time += save_img_end_time - save_img_start_time
+
     except KeyboardInterrupt:
         print("Keyboard interrupt detected. Closing connections.")
     except Exception as e:
@@ -227,6 +245,17 @@ def acquire_new_data_from_object_with_joints():
         UR5.robot.close()
         print("Closing camera")
         DC.pipe.stop()
+
+    print(
+        f"Robot time:{robot_time}\nCamera time: {camera_time}\nSave image time: {save_img_time}"
+    )
+    time_report = {
+        "Robot time": robot_time,
+        "Camera time": camera_time,
+        "Save img time": save_img_time,
+    }
+    with open(os.path.join(data_save_dir, f"time.json"), "w") as f:
+        json.dump(time_report, f, indent=4)
 
 
 def save_annotations(data_save_dir, n, annotations):
