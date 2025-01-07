@@ -13,7 +13,7 @@ https://bitbucket.org/RopeRobotics/ur-interface/src/master/
 The visualization of annotation labels is adapted from https://github.com/NVlabs/FoundationPose
 
 ## TODO
-# High priority
+High priority
 - [x] Robot controller
 - [x] Robot pose generation
 - [x] Camera controller
@@ -26,7 +26,7 @@ The visualization of annotation labels is adapted from https://github.com/NVlabs
 - [ ] Training and testing (2D object detection)
 - [ ] Training and testing (6D object pose estimation)
 
-# Low priority
+Low priority
 - [ ] Robot path planning and optimization
 - [ ] Data annotation format confirmation (3D bounding box)
 - [ ] 3D bounding box annotation
