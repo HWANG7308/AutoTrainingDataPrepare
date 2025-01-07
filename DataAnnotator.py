@@ -430,19 +430,19 @@ class Annotator3DBBox:
         bbox_front = annotation_front.get("shapes")[0].get("points")
         bbox_top = annotation_top.get("shapes")[0].get("points")
 
-        length = bbox_front[1][0] - bbox_front[0][0]
-        width = bbox_front[1][1] - bbox_front[0][1]
-        height = bbox_top[1][1] - bbox_top[0][1]
+        cuboid_width = bbox_top[1][0] - bbox_top[0][0]
+        cuboid_height = bbox_front[1][1] - bbox_front[0][1]
+        cuboid_depth = bbox_top[1][1] - bbox_top[0][1]
 
-        # Convert from the pixel space to real-world space
+        # Convert from the pixel space to real-world space TODO: fix the conversion
         img_height, img_width, _ = self.color_img_bgr.shape
         dist_cam2obj = 0.3  # The distance between the camera and the object, i.e., radius in PoseGenerator
 
-        length = length / img_width * dist_cam2obj
-        width = width / img_height * dist_cam2obj
-        height = height / img_height * dist_cam2obj
+        cuboid_width = cuboid_width / img_width * dist_cam2obj
+        cuboid_height = cuboid_height / img_height * dist_cam2obj
+        cuboid_depth = cuboid_depth / img_height * dist_cam2obj
 
-        extents = np.asarray((length, height, width))  # (width, height, depth)
+        extents = np.asarray((cuboid_width, cuboid_height, cuboid_depth))
 
         oriented_3dbbox = np.stack([-extents / 2, extents / 2], axis=0).reshape(2, 3)
 
@@ -457,8 +457,8 @@ class Annotator3DBBox:
         vis = self.visualize_3dbbox(oriented_3dbbox, show_result)
 
         annotation = {
-            "oriented_3dbbox": oriented_3dbbox,
-            "ob_in_cam": np.asarray(self.object_pose),
+            "oriented_3dbbox": oriented_3dbbox.tolist(),
+            "ob_in_cam": np.asarray(self.object_pose).tolist(),
             "img_path": os.path.basename(self.color_img_path),
             "img_height": self.color_img_bgr.shape[0],
             "img_width": self.color_img_bgr.shape[1],

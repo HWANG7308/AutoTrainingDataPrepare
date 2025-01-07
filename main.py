@@ -365,7 +365,7 @@ def create_labels(annotation_type, save_vis=False):
                 annotation = annotator.annotate(save_vis_dir=save_vis_dir)
             elif annotation_type == "3dbbox":
                 annotator = Annotator3DBBox(color_img_path, depth_img_path, meta_path)
-                _ = annotator.init_top_front_views(front_annotation, top_annotation)
+                _ = annotator.init_front_top_views(front_annotation, top_annotation)
                 annotation = annotator.annotate(save_vis_dir=save_vis_dir)
             elif annotation_type == "img_seg":
                 raise ValueError("Yet to be merged")  # TODO merge the function
