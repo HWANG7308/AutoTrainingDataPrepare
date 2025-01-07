@@ -527,7 +527,7 @@ class Annotator3DBBox:
             uv = np.round(projected[:, :2] / projected[:, 2].reshape(-1, 1)).astype(
                 int
             )  # (2,2)
-            print("uv", uv[0].tolist(), uv[1].tolist())
+            # print("uv", uv[0].tolist(), uv[1].tolist())
             img = cv2.line(
                 img,
                 uv[0].tolist(),

@@ -295,7 +295,7 @@ def save_annotations(data_save_dir, n, annotation):
     os.makedirs(data_save_dir, exist_ok=True)
     with open(os.path.join(data_save_dir, f"meta_{n:06d}.json"), "w") as f:
         json.dump(annotation, f, indent=4)
-    print("Data annotation saved!")
+    print(f"Data annotation {n} saved in {data_save_dir}")
 
 
 def create_labels(annotation_type, save_vis=False):
