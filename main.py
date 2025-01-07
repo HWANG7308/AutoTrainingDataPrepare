@@ -23,7 +23,14 @@ from DataAnnotator import Annotator2DBBox, Annotator3DBBox, Annotator6DPose
 from utils import get_selection
 
 
-def save_data_sample(data_save_dir, n, name, pose, out, UR5):
+"""
+====================
+Data acquisition functions
+====================
+"""
+
+
+def save_data_sample(data_save_dir, n, name, pose, out, UR5, T_end2cam):
     """
     Save the data sample including images and metadata.
 
@@ -37,32 +44,43 @@ def save_data_sample(data_save_dir, n, name, pose, out, UR5):
     """
 
     save_dir = {
-        "color_img_dir": os.path.join(data_save_dir, "color"),
-        "depth_img_dir": os.path.join(data_save_dir, "depth"),
-        "meta_info_dir": os.path.join(data_save_dir, "meta"),
+        key: os.path.join(data_save_dir, key.split("_")[0])
+        for key in ["color_img_dir", "depth_img_dir", "meta_info_dir"]
     }
 
     for dir_path in save_dir.keys():
         os.makedirs(save_dir.get(dir_path), exist_ok=True)
 
-    cv2.imwrite(
-        os.path.join(save_dir.get("color_img_dir"), f"color_{n:06d}.png"),
-        out.get("color"),
-    )
-    cv2.imwrite(
-        os.path.join(save_dir.get("depth_img_dir"), f"depth_{n:06d}.png"),
-        out.get("depth"),
-    )
+    color_image = out.get("color")
+    depth_image = out.get("depth")
+    if color_image is not None:
+        cv2.imwrite(
+            os.path.join(save_dir.get("color_img_dir"), f"color_{n:06d}.png"),
+            color_image,
+        )
+    else:
+        print(f"Warning: Color image for sample {n} is None and will not be saved.")
+
+    if depth_image is not None:
+        cv2.imwrite(
+            os.path.join(save_dir.get("depth_img_dir"), f"depth_{n:06d}.png"),
+            depth_image,
+        )
+    else:
+        print(f"Warning: Depth image for sample {n} is None and will not be saved.")
+
     meta = {
         "class": name,
         "time": datetime.datetime.today().strftime("%Y-%m-%d, %H:%M:%S"),
         "view_point_id": n,
         "robot_arm_joints": UR5.get_joints().tolist(),
-        "object_pose": pose.get("T_obj2cam").inverse.get_matrix().tolist(),
+        "object_pose": pose.get("T_obj2cam").inverse().get_matrix().tolist(),
         "tf_rob2end": pose.get("T_rob2end").get_matrix().tolist(),
         "intrinsics_color": out.get("color_intr"),
         "depth_scale": out.get("depth_scale"),
         "hand_eye_calibration": T_end2cam.get_matrix().tolist(),
+        "color_img_saved": color_image is not None,
+        "depth_img_saved": depth_image is not None,
     }
     with open(
         os.path.join(save_dir.get("meta_info_dir"), f"meta_{n:06d}.json"), "w"
@@ -109,7 +127,7 @@ def acquire_new_data_from_object():
             _ = UR5.move_robot(pose=next_pose)
             print("Getting data from the camera...")
             out = DC.get_frames(return_intrinsics=True, with_repair=False)
-            save_data_sample(data_save_dir, n, name, pose, out, UR5)
+            save_data_sample(data_save_dir, n, name, pose, out, UR5, T_end2cam)
             # UR5.go_init() #TODO find a way to optimize the robot path otherwise go back to initial position every time
     except KeyboardInterrupt:
         print("Keyboard interrupt detected. Closing connections.")
@@ -258,18 +276,25 @@ def acquire_new_data_from_object_with_joints():
         json.dump(time_report, f, indent=4)
 
 
-def save_annotations(data_save_dir, n, annotations):
+"""
+====================
+Data annotation functions
+====================
+"""
+
+
+def save_annotations(data_save_dir, n, annotation):
     """
     Save the annotations to a JSON file.
 
     Parameters:
     data_save_dir (str): Directory to save the annotations.
     n (int): Index of the current sample.
-    annotations (dict): Annotations to save.
+    annotation (dict): Annotation to save.
     """
     os.makedirs(data_save_dir, exist_ok=True)
     with open(os.path.join(data_save_dir, f"meta_{n:06d}.json"), "w") as f:
-        json.dump(annotations, f, indent=4)
+        json.dump(annotation, f, indent=4)
     print("Data annotation saved!")
 
 
@@ -288,6 +313,37 @@ def create_labels(annotation_type, save_vis=False):
     for _, name in enumerate(names):
         color_img_dir = os.path.join(raw_data_dir, name, "color")
         color_imgs = list(os.listdir(color_img_dir))
+
+        if annotation_type == "3dbbox":
+            front_view_id = 0
+            top_view_id = 64  # TODO: find a robust method to get the top view images
+
+            # Annotation for front view
+            front_color_img_path = os.path.join(
+                color_img_dir, f"color_{front_view_id:06d}.png"
+            )
+            front_depth_img_path = front_color_img_path.replace("color", "depth")
+            front_meta_path_ = front_color_img_path.replace("color", "meta")
+            front_meta_path = os.path.splitext(front_meta_path_)[0] + ".json"
+            front_annotator = Annotator2DBBox(
+                front_color_img_path, front_depth_img_path, front_meta_path
+            )
+            _ = front_annotator.remove_bkg_chroma_key()
+            front_annotation = front_annotator.annotate()
+
+            # Annotation for top view
+            top_color_img_path = os.path.join(
+                color_img_dir, f"color_{top_view_id:06d}.png"
+            )
+            top_depth_img_path = top_color_img_path.replace("color", "depth")
+            top_meta_path_ = top_color_img_path.replace("color", "meta")
+            top_meta_path = os.path.splitext(top_meta_path_)[0] + ".json"
+            top_annotator = Annotator2DBBox(
+                top_color_img_path, top_depth_img_path, top_meta_path
+            )
+            _ = top_annotator.remove_bkg_chroma_key()
+            top_annotation = top_annotator.annotate()
+
         for n, color_img in enumerate(color_imgs):
             color_img_path = os.path.join(color_img_dir, color_img)
             depth_img_path = color_img_path.replace("color", "depth")
@@ -303,12 +359,14 @@ def create_labels(annotation_type, save_vis=False):
             if annotation_type == "2dbbox":
                 annotator = Annotator2DBBox(color_img_path, depth_img_path, meta_path)
                 _ = annotator.remove_bkg_chroma_key(save_vis_dir=save_vis_dir)
-                annotations = annotator.annotate(save_vis_dir=save_vis_dir)
+                annotation = annotator.annotate(save_vis_dir=save_vis_dir)
             elif annotation_type == "6dpose":
                 annotator = Annotator6DPose(color_img_path, depth_img_path, meta_path)
-                annotations = annotator.annotate(save_vis_dir=save_vis_dir)
+                annotation = annotator.annotate(save_vis_dir=save_vis_dir)
             elif annotation_type == "3dbbox":
-                raise ValueError("Yet to be merged")  # TODO merge the function
+                annotator = Annotator3DBBox(color_img_path, depth_img_path, meta_path)
+                _ = annotator.init_top_front_views(front_annotation, top_annotation)
+                annotation = annotator.annotate(save_vis_dir=save_vis_dir)
             elif annotation_type == "img_seg":
                 raise ValueError("Yet to be merged")  # TODO merge the function
             else:
@@ -316,10 +374,12 @@ def create_labels(annotation_type, save_vis=False):
                     "Invalid annotation type. Use '2dbbox', '6dpose', '3dbbox', or 'img_seg'."
                 )
 
+            annotation["class"] = name
+
             save_annotations(
                 os.path.join(data_save_dir, name, annotation_type, "label"),
                 n,
-                annotations,
+                annotation,
             )
 
 
@@ -338,61 +398,88 @@ def create_labels_6dpose():
 
 
 def create_labels_3dbbox():
+    """
+    Create 3D bounding box labels for the acquired data.
+    """
+    create_labels("3dbbox", save_vis=True)
+
+
+def create_labels_3dbbox_standalone():  # TODO: remove this function if the one works correctly in create_labels.
     raw_data_dir = os.path.join(root, "result/acquired_data")
     data_save_dir = os.path.join(root, "result/annotated_data")
-    os.makedirs(data_save_dir, exist_ok=True)
 
     names = list(os.listdir(raw_data_dir))
 
-    for n, name in enumerate(names):
+    front_view_id = 0
+    top_view_id = 64  # TODO: find a robust method to get the top view images
+    annotation_type = "3dbbox"
+    save_vis = True
 
-        # top_color_img_path = "result/acquired_data/test_bkp/color_000000.png"
-        # front_color_img_path = "result/acquired_data/test/color_000002.png"
-        # depth_img_path = None
-        # test_img_path = "result/acquired_data/test_old/color_000000.png"
+    for _, name in enumerate(names):
+        color_img_dir = os.path.join(raw_data_dir, name, "color")
+        color_imgs = list(os.listdir(color_img_dir))
 
-        # TODO fix the paths of top view and front view here
-        top_color_img_path = os.path.join(raw_data_dir, name, "color_000000.png")
-        top_depth_img_path = os.path.join(
-            os.path.dirname(top_color_img_path),
-            os.path.basename(top_color_img_path).replace("color", "depth"),
+        # Annotation for front view
+        front_color_img_path = os.path.join(
+            color_img_dir, f"color_{front_view_id:06d}.png"
         )
-        front_color_img_path = os.path.join(raw_data_dir, name, "color_000002.png")
-        front_depth_img_path = os.path.join(
-            os.path.dirname(front_color_img_path),
-            os.path.basename(front_color_img_path).replace("color", "depth"),
+        front_depth_img_path = front_color_img_path.replace("color", "depth")
+        front_meta_path_ = front_color_img_path.replace("color", "meta")
+        front_meta_path = os.path.splitext(front_meta_path_)[0] + ".json"
+        front_annotator = Annotator2DBBox(
+            front_color_img_path, front_depth_img_path, front_meta_path
         )
+        _ = front_annotator.remove_bkg_chroma_key()
+        front_annotation = front_annotator.annotate()
 
-        color_img_path = os.path.join(raw_data_dir, name, f"color_{n:06d}.png")
-        depth_img_path = os.path.join(
-            os.path.dirname(color_img_path),
-            os.path.basename(color_img_path).replace("color", "depth"),
+        # Annotation for top view
+        top_color_img_path = os.path.join(color_img_dir, f"color_{top_view_id:06d}.png")
+        top_depth_img_path = top_color_img_path.replace("color", "depth")
+        top_meta_path_ = top_color_img_path.replace("color", "meta")
+        top_meta_path = os.path.splitext(top_meta_path_)[0] + ".json"
+        top_annotator = Annotator2DBBox(
+            top_color_img_path, top_depth_img_path, top_meta_path
         )
-        meta_path_ = os.path.join(
-            os.path.dirname(color_img_path),
-            os.path.basename(color_img_path).replace("color", "meta"),
-        )
-        meta_path = os.path.splitext(meta_path_)[0] + ".json"
+        _ = top_annotator.remove_bkg_chroma_key()
+        top_annotation = top_annotator.annotate()
 
-        # Annotate 3D bounding boxes
-        DA_2DBBox_top = Annotator2DBBox(top_color_img_path, top_depth_img_path)
-        DA_2DBBox_top.annotate()
-        DA_2DBBox_front = Annotator2DBBox(front_color_img_path, front_depth_img_path)
-        DA_2DBBox_front.annotate()
-        annotation_top = DA_2DBBox_top.annotation
-        annotation_front = DA_2DBBox_front.annotation
+        for n, color_img in enumerate(color_imgs):
 
-        DA_3dbbox = Annotator3DBBox(color_img_path, depth_img_path, meta_path)
-        oriented_3dbbox = DA_3dbbox.reconstruct_oriented_3dbbox(
-            annotation_front, annotation_top
-        )
-        DA_3dbbox.visualize_3dbbox(oriented_3dbbox)
+            color_img_path = os.path.join(color_img_dir, color_img)
+            depth_img_path = color_img_path.replace("color", "depth")
+            meta_path_ = color_img_path.replace("color", "meta")
+            meta_path = os.path.splitext(meta_path_)[0] + ".json"
 
-        # TODO save the meta information
+            save_vis_dir = (
+                os.path.join(data_save_dir, name, annotation_type, "vis")
+                if save_vis
+                else None
+            )
+
+            DA_3dbbox = Annotator3DBBox(color_img_path, depth_img_path, meta_path)
+            _ = DA_3dbbox.init_top_front_views(front_annotation, top_annotation)
+            annotations = DA_3dbbox.annotate(save_vis_dir=save_vis_dir)
+
+            save_annotations(
+                os.path.join(data_save_dir, name, annotation_type, "label"),
+                n,
+                annotations,
+            )
 
 
 def create_labels_img_seg():
+    """
+    Create segmentation mask labels for the acquired data.
+    """
+    # create_labels("img_seg", save_vis=True)
     raise NotImplementedError
+
+
+"""
+====================
+Training functions
+====================
+"""
 
 
 def train(task_type):
@@ -418,6 +505,13 @@ def train_6d_pose_estimation():
     train("6d_pose_estimation")
 
 
+"""
+====================
+Testing functions
+====================
+"""
+
+
 def prediction(task_type):
     if task_type == "2d_object_detection":
         raise ValueError("Yet to be merged")  # TODO merge the function
@@ -441,8 +535,22 @@ def run_live_prediction_6d_pose_estimate():
     prediction("6d_pose_estimation")
 
 
+"""
+====================
+Visualization functions
+====================
+"""
+
+
 def visualize():
     raise NotImplementedError
+
+
+"""
+====================
+Hand-eye calibration functions
+====================
+"""
 
 
 def perform_hand_eye_calibration():
@@ -463,6 +571,13 @@ def perform_hand_eye_calibration():
     T_end2cam_calib = HandEyeCalibration(robot_poses, camera_poses)
 
     print("Calibrated T_end2cam:\n", T_end2cam_calib)
+
+
+"""
+====================
+Main Menu
+====================
+"""
 
 
 def main():
