@@ -183,17 +183,19 @@ class Annotator2DBBox:
                 cv2.cvtColor(vis, cv2.COLOR_BGR2RGB),
             )
 
-        return annotations
+        return self.annotation
 
     def visualize_2dbbox(self, show=False):
         img = self.color_img_rgb.copy()
         annotation = self.annotation
 
-        if annotation:
-            shape = annotation.get("shapes")[0]
-            [x_min, y_min] = shape.get("points")[0]
-            [x_max, y_max] = shape.get("points")[1]
-            cv2.rectangle(img, (x_min, y_min), (x_max, y_max), (255, 0, 0), 2)
+        if not annotation:
+            raise ValueError("No annotation found")
+
+        shape = annotation.get("shapes")[0]
+        [x_min, y_min] = shape.get("points")[0]
+        [x_max, y_max] = shape.get("points")[1]
+        cv2.rectangle(img, (x_min, y_min), (x_max, y_max), (255, 0, 0), 2)
 
         if show:
             cv2.imshow("2D BBox annotation", img)
@@ -271,7 +273,7 @@ class Annotator6DPose:
                 vis,
             )
 
-        return annotation
+        return self.annotation
 
     def visualize_6dpose(self, show=False):
         """Draw xyz-axis"""
@@ -392,7 +394,6 @@ class Annotator3DBBox:
         # if self.depth_img is None:
         #     raise FileNotFoundError(f"Depth image not found at {self.depth_img_path}")
 
-        # TODO fix these two following values
         self.annotation_top = None
         self.annotation_front = None
 
@@ -419,14 +420,19 @@ class Annotator3DBBox:
 
         self.annotation = {}
 
+    def init_front_top_views(self, annotation_front, annotation_top):
+        self.annotation_front = annotation_front
+        self.annotation_top = annotation_top
+        return 1
+
     def reconstruct_oriented_3dbbox(self, annotation_front, annotation_top):
         """Generate 3D BBox (cuboid) given the 2D BBoxes of the front and top view"""
         bbox_front = annotation_front.get("shapes")[0].get("points")
         bbox_top = annotation_top.get("shapes")[0].get("points")
 
-        length = bbox_top[1][0] - bbox_top[0][0]
-        width = bbox_top[1][1] - bbox_top[0][1]
-        height = bbox_front[1][1] - bbox_front[0][1]
+        length = bbox_front[1][0] - bbox_front[0][0]
+        width = bbox_front[1][1] - bbox_front[0][1]
+        height = bbox_top[1][1] - bbox_top[0][1]
 
         # Convert from the pixel space to real-world space
         img_height, img_width, _ = self.color_img_bgr.shape
@@ -440,25 +446,38 @@ class Annotator3DBBox:
 
         oriented_3dbbox = np.stack([-extents / 2, extents / 2], axis=0).reshape(2, 3)
 
-        self.annotation = {"oriented_3dbbox": oriented_3dbbox}
-
         return oriented_3dbbox
 
-    def annotate(self, show_result=False, save_result=False):
+    def annotate(self, show_result=False, save_vis_dir=None):
 
         oriented_3dbbox = self.reconstruct_oriented_3dbbox(
-            self.annotation_top, self.annotation_front
+            self.annotation_front, self.annotation_top
         )
 
-        vis = self.visualize_3dbbox(oriented_3dbbox, show_result, save_result)
+        vis = self.visualize_3dbbox(oriented_3dbbox, show_result)
 
-        if save_result:
+        annotation = {
+            "oriented_3dbbox": oriented_3dbbox,
+            "ob_in_cam": np.asarray(self.object_pose),
+            "img_path": os.path.basename(self.color_img_path),
+            "img_height": self.color_img_bgr.shape[0],
+            "img_width": self.color_img_bgr.shape[1],
+        }  # TODO: fix the annotation format
+
+        self.annotation = annotation
+
+        if save_vis_dir is not None:
+            save_dir = os.path.join(save_vis_dir, "3dbbox")
+            os.makedirs(save_dir, exist_ok=True)
+            filename = os.path.basename(self.color_img_path).replace("color", "3dbbox")
             cv2.imwrite(
-                self.color_img_path.replace("acquired_data", "annotated_data/3dbbox"),
+                os.path.join(save_dir, filename),
                 vis,
             )
 
-    def visualize_3dbbox(self, oriented_3dbbox, show_result=False, return_vis=False):
+        return self.annotation
+
+    def visualize_3dbbox(self, oriented_3dbbox, show=False):
         """Visualize 3D bounding box"""
         color = self.color_img_bgr.copy()
 
@@ -469,15 +488,12 @@ class Annotator3DBBox:
             K=self.cam_K,
         )
 
-        if show_result:
+        if show:
             cv2.imshow("3D bounding box", vis)
             cv2.waitKey(0)
             cv2.destroyAllWindows()
 
-        if return_vis:
-            return vis
-
-        return 1
+        return vis
 
     def to_homo(self, pts):
         """
