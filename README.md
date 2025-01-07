@@ -19,8 +19,11 @@ The visualization of annotation labels is adapted from https://github.com/NVlabs
 - [x] Camera calibration
 - [ ] Robot path planning and optimization
 - [x] Image acquisition
+- [x] Data annotation format confirmation (2D bounding box)
+- [ ] Data annotation format confirmation (6D pose)
+- [ ] Data annotation format confirmation (3D bounding box)
 - [x] 2D bounding box annotation
-- [ ] 3D bounding box annotation
+- [x] 3D bounding box annotation
 - [x] 6D pose annotation
 - [ ] Training and testing (2D object detection)
 - [ ] Training and testing (6D object pose estimation)
@@ -31,6 +34,6 @@ The visualization of annotation labels is adapted from https://github.com/NVlabs
 - [ ] License clarification
 - [ ] Cleanup
 - [ ] Refactoring
-- [ ] documentation
+- [ ] Documentation
 - [ ] Comments
 - [ ] Dependencies
