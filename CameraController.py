@@ -18,10 +18,10 @@ class D435:
     def __init__(
         self,
         fps=30,
-        color_width=640,
-        color_height=480,
-        depth_width=640,
-        depth_height=480,
+        color_width=1920,
+        color_height=1080,
+        depth_width=1280,
+        depth_height=720,
     ):
         self.color_height = color_height
         self.color_width = color_width
@@ -63,8 +63,8 @@ class D435:
     def set_color_sensor_options(self):
         self.color_sensor.set_option(rs.option.enable_auto_white_balance, False)
         self.color_sensor.set_option(rs.option.enable_auto_exposure, False)
-        self.color_sensor.set_option(rs.option.exposure, 200.0)
-        self.color_sensor.set_option(rs.option.white_balance, 3200.0)
+        self.color_sensor.set_option(rs.option.exposure, 400.0)
+        self.color_sensor.set_option(rs.option.white_balance, 3000.0)
 
     def check_rgb_sensor(self):
         pipeline_wrapper = rs.pipeline_wrapper(self.pipe)
@@ -101,7 +101,8 @@ class D435:
                 depth_colorized = out.get("depth_colorized")
                 show = cv2.addWeighted(color, 0.7, depth_colorized, 0.3, 0)
 
-            cv2.imshow("stream", cv2.cvtColor(show, cv2.COLOR_RGB2BGR))
+            # cv2.imshow("stream", cv2.cvtColor(show, cv2.COLOR_RGB2BGR))
+            cv2.imshow("stream", show)
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 break
 
@@ -185,8 +186,9 @@ class D435:
 
 
 if __name__ == "__main__":
-    DC = D435(fps=15, color_width=1280, color_height=720)
+    DC = D435()
     intr = DC.get_color_intrinsics()
     print(intr)
     print(DC.get_depth_scale() * 1000)
-    DC.stream(show_color=True, show_added=True, show_depth=True)
+    # DC.stream(show_color=True, show_added=True, show_depth=True)
+    DC.stream()
