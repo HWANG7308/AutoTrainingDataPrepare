@@ -78,13 +78,11 @@ class Annotator2DBBox:
             cv2.destroyAllWindows()
 
         if save_vis_dir is not None:
-            save_dir = os.path.join(save_vis_dir, "remove_bkg_chroma_key")
-            os.makedirs(save_dir, exist_ok=True)
             filename = os.path.basename(self.color_img_path).replace(
                 "color", "remove_bkg_chroma_key"
             )
             cv2.imwrite(
-                os.path.join(save_dir, filename),
+                os.path.join(save_vis_dir, filename),
                 cv2.cvtColor(rgba_image, cv2.COLOR_BGR2RGB),
             )
 
@@ -120,13 +118,11 @@ class Annotator2DBBox:
             cv2.destroyAllWindows()
 
         if save_vis_dir is not None:
-            save_dir = os.path.join(save_vis_dir, "remove_bkg_depth_value")
-            os.makedirs(save_dir, exist_ok=True)
             filename = os.path.basename(self.color_img_path).replace(
                 "color", "remove_bkg_depth_value"
             )
             cv2.imwrite(
-                os.path.join(save_dir, filename),
+                os.path.join(save_vis_dir, filename),
                 cv2.cvtColor(bg_removed, cv2.COLOR_BGR2RGB),
             )
 
@@ -175,11 +171,9 @@ class Annotator2DBBox:
         vis = self.visualize_2dbbox(show_result)
 
         if save_vis_dir is not None:
-            save_dir = os.path.join(save_vis_dir, "2dbbox")
-            os.makedirs(save_dir, exist_ok=True)
             filename = os.path.basename(self.color_img_path).replace("color", "2dbbox")
             cv2.imwrite(
-                os.path.join(save_dir, filename),
+                os.path.join(save_vis_dir, filename),
                 cv2.cvtColor(vis, cv2.COLOR_BGR2RGB),
             )
 
@@ -265,11 +259,9 @@ class Annotator6DPose:
         vis = self.visualize_6dpose(show_result)
 
         if save_vis_dir is not None:
-            save_dir = os.path.join(save_vis_dir, "6dpose")
-            os.makedirs(save_dir, exist_ok=True)
             filename = os.path.basename(self.color_img_path).replace("color", "6dpose")
             cv2.imwrite(
-                os.path.join(save_dir, filename),
+                os.path.join(save_vis_dir, filename),
                 vis,
             )
 
@@ -467,11 +459,9 @@ class Annotator3DBBox:
         self.annotation = annotation
 
         if save_vis_dir is not None:
-            save_dir = os.path.join(save_vis_dir, "3dbbox")
-            os.makedirs(save_dir, exist_ok=True)
             filename = os.path.basename(self.color_img_path).replace("color", "3dbbox")
             cv2.imwrite(
-                os.path.join(save_dir, filename),
+                os.path.join(save_vis_dir, filename),
                 vis,
             )
 

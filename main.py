@@ -12,13 +12,14 @@ import json
 from pathlib import Path
 import time
 import datetime
+from tqdm import tqdm
 import math
 import math3d as m3d
 import cv2
 import HandEyeCalibration
 from PoseGenerator import PoseGenerator
 from URController import UR5RobotController
-from DepthCamera import D435
+from CameraController import D435
 from DataAnnotator import Annotator2DBBox, Annotator3DBBox, Annotator6DPose
 from utils import get_selection
 
@@ -303,16 +304,17 @@ def create_labels(annotation_type, save_vis=False):
     Create labels for the acquired data.
 
     Parameters:
-    annotation_type (str): Type of annotation ("2dbbox", "6dpose", "3dbbox", "img_seg").
+    annotation_type (str): Type of annotation ("2dbbox", "6dpose", "3dbbox", "img_seg", "remove_bkg_chroma_key").
     """
     raw_data_dir = os.path.join(root, "result/acquired_data")
     data_save_dir = os.path.join(root, "result/annotated_data")
 
-    names = list(os.listdir(raw_data_dir))
+    names = sorted(os.listdir(raw_data_dir))
 
     for _, name in enumerate(names):
+
         color_img_dir = os.path.join(raw_data_dir, name, "color")
-        color_imgs = list(os.listdir(color_img_dir))
+        color_imgs = os.listdir(color_img_dir)
 
         if annotation_type == "3dbbox":
             front_view_id = 0
@@ -344,22 +346,26 @@ def create_labels(annotation_type, save_vis=False):
             _ = top_annotator.remove_bkg_chroma_key()
             top_annotation = top_annotator.annotate()
 
-        for n, color_img in enumerate(color_imgs):
+        for n, color_img in enumerate(
+            tqdm(color_imgs, desc=f"Processing data for {name}")
+        ):
             color_img_path = os.path.join(color_img_dir, color_img)
             depth_img_path = color_img_path.replace("color", "depth")
             meta_path_ = color_img_path.replace("color", "meta")
             meta_path = os.path.splitext(meta_path_)[0] + ".json"
 
-            save_vis_dir = (
-                os.path.join(data_save_dir, name, annotation_type, "vis")
-                if save_vis
-                else None
-            )
+            if save_vis:
+                save_vis_dir = os.path.join(data_save_dir, name, "vis", annotation_type)
+                os.makedirs(save_vis_dir, exist_ok=True)
 
             if annotation_type == "2dbbox":
                 annotator = Annotator2DBBox(color_img_path, depth_img_path, meta_path)
                 _ = annotator.remove_bkg_chroma_key(save_vis_dir=save_vis_dir)
                 annotation = annotator.annotate(save_vis_dir=save_vis_dir)
+            elif annotation_type == "remove_bkg_chroma_key":
+                annotator = Annotator2DBBox(color_img_path, depth_img_path, meta_path)
+                annotation = annotator.remove_bkg_chroma_key(save_vis_dir=save_vis_dir)
+                continue
             elif annotation_type == "6dpose":
                 annotator = Annotator6DPose(color_img_path, depth_img_path, meta_path)
                 annotation = annotator.annotate(save_vis_dir=save_vis_dir)
@@ -371,16 +377,23 @@ def create_labels(annotation_type, save_vis=False):
                 raise ValueError("Yet to be merged")  # TODO merge the function
             else:
                 raise ValueError(
-                    "Invalid annotation type. Use '2dbbox', '6dpose', '3dbbox', or 'img_seg'."
+                    "Invalid annotation type. Use '2dbbox', '6dpose', '3dbbox', 'img_seg', or 'remove_bkg_chroma_key'."
                 )
 
             annotation["class"] = name
 
             save_annotations(
-                os.path.join(data_save_dir, name, annotation_type, "label"),
+                os.path.join(data_save_dir, name, "label", annotation_type),
                 n,
                 annotation,
             )
+
+
+def remove_bkg_chroma_key():
+    """
+    Create background removed data for the acquired data based on chroma key.
+    """
+    create_labels("remove_bkg_chroma_key", save_vis=True)
 
 
 def create_labels_2dbbox():
@@ -585,6 +598,7 @@ def main():
         "Acquire New Data from Object": acquire_new_data_from_object,
         "Acquire New Data from Object (Demo)": acquire_new_data_from_object_demo,
         "Acquire New Data from Object with Given Robot Joint Positions": acquire_new_data_from_object_with_joints,
+        "Remove Background (Chroma Key)": remove_bkg_chroma_key,
         "Create Labels (2D BBox)": create_labels_2dbbox,
         "Create Labels (6D Pose)": create_labels_6dpose,
         "Create Labels (3D BBox)": create_labels_3dbbox,
@@ -605,6 +619,7 @@ def main():
         if selection == "exit":
             break
         else:
+            print(f"Selected: {selection}")
             s[selection]()
 
 
