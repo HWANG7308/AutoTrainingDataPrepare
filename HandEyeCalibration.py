@@ -188,11 +188,11 @@ if __name__ == "__main__":
         m3d.Orientation.new_euler((math.pi / 2, 0, math.pi), "XYZ"),
         m3d.Vector(0, -0.7, 0),
     )
-    T_end2cam_temp = m3d.Transform(
+    T_end2cam = m3d.Transform(
         m3d.Orientation.new_rotation_vector((0, 0, 0)), m3d.Vector(0, 0, 0.05)
     )
     robot_poses = PoseGenerator(
-        T_rob2obj, T_end2cam_temp
+        T_rob2obj, T_end2cam
     ).generate_positions_hand_eye_calibration()
 
     # Step 3: Take images with given robot end effector poses
@@ -212,6 +212,6 @@ if __name__ == "__main__":
     # )
 
     # Step 5: Perform hand-eye calibration and calculate the transformation matrix from the robot end effector to the camera
-    T_end2cam = hand_eye_calibration(robot_poses, camera_poses)
+    T_end2cam_calib = hand_eye_calibration(robot_poses, camera_poses)
 
-    print("T_end2cam:\n", T_end2cam)
+    print("Calibrated T_end2cam:\n", T_end2cam_calib)
