@@ -36,7 +36,7 @@ class Annotator2DBBox:
 
     def remove_bkg_chroma_key(
         self,
-        white_range=(100, 255),
+        white_range=(175, 255),
         show_result=False,
         save_vis_dir=None,
     ):
