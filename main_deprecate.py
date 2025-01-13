@@ -26,7 +26,7 @@ from utils import get_selection
 
 """
 ====================
-Data acquisition functions
+Data acquisition functions (moved to data_acquisition.py)
 ====================
 """
 
@@ -279,7 +279,7 @@ def acquire_new_data_from_object_with_joints():
 
 """
 ====================
-Data annotation functions
+Data annotation functions (moved to data_annotation.py)
 ====================
 """
 
@@ -561,7 +561,7 @@ def visualize():
 
 """
 ====================
-Hand-eye calibration functions
+Hand-eye calibration functions (moved to HandEyeCalibration.py)
 ====================
 """
 
