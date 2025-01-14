@@ -20,7 +20,9 @@ from CameraController import D435
 from utils import get_selection
 
 
-def save_data_sample(data_save_dir, n, name, pose, out, UR5, T_end2cam):
+def save_data_sample(
+    data_save_dir, n, name, pose, out, UR5, T_end2cam, img_crop_size=(480, 640)
+):
     """
     Save the data sample including images and metadata.
 
@@ -55,16 +57,30 @@ def save_data_sample(data_save_dir, n, name, pose, out, UR5, T_end2cam):
             os.path.join(save_dir.get("color_img_dir"), f"color_{n:06d}.png"),
             color_image,
         )
-        color_cropped_image = color_image[
-            color_image.shape[0] // 2 - 240 : color_image.shape[0] // 2 + 240,
-            color_image.shape[1] // 2 - 320 : color_image.shape[1] // 2 + 320,
-        ]
-        cv2.imwrite(
-            os.path.join(
-                save_dir.get("color-cropped_img_dir"), f"color-cropped_{n:06d}.png"
-            ),
-            color_cropped_image,
-        )
+        if img_crop_size is not None:
+            if (
+                color_image.shape[0] >= img_crop_size[0]
+                and color_image.shape[1] >= img_crop_size[1]
+            ):
+                color_cropped_image = color_image[
+                    (color_image.shape[0] - img_crop_size[0])
+                    // 2 : (color_image.shape[0] + img_crop_size[0])
+                    // 2,
+                    (color_image.shape[1] - img_crop_size[1])
+                    // 2 : (color_image.shape[1] + img_crop_size[1])
+                    // 2,
+                ]
+                cv2.imwrite(
+                    os.path.join(
+                        save_dir.get("color-cropped_img_dir"),
+                        f"color-cropped_{n:06d}.png",
+                    ),
+                    color_cropped_image,
+                )
+            else:
+                print(
+                    f"Warning: Color image for sample {n} is too small to be cropped."
+                )
     else:
         print(f"Warning: Color image for sample {n} is None and will not be saved.")
 
@@ -203,7 +219,6 @@ def acquire_new_data_from_object_demo():
 def acquire_new_data_from_object_with_joints():
     """
     Acquire new images from an object by taking images with given robot joint positions.
-    TODO fix this function
     """
     UR5 = UR5RobotController(ROBOT_IP)
     DC = D435(color_width=1920, color_height=1080, depth_width=1280, depth_height=720)
@@ -241,7 +256,7 @@ def acquire_new_data_from_object_with_joints():
 
     try:
         for n, pose in enumerate(robot_poses):
-            print("=" * 70)
+            print("\n" + "_" * 70)
             print(
                 f"Taking the image with robot joint configurations {n} ({robot_joints.get(str(n))})..."
             )
