@@ -18,10 +18,10 @@ class D435:
     def __init__(
         self,
         fps=30,
-        color_width=1920,
-        color_height=1080,
-        depth_width=1280,
-        depth_height=720,
+        color_width=640,
+        color_height=480,
+        depth_width=640,
+        depth_height=480,
     ):
         self.color_height = color_height
         self.color_width = color_width
