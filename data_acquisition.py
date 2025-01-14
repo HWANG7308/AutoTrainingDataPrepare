@@ -20,7 +20,7 @@ from CameraController import D435
 from utils import get_selection
 
 
-def save_data_sample(data_save_dir, n, name, pose, out, UR5):
+def save_data_sample(data_save_dir, n, name, pose, out, UR5, T_end2cam):
     """
     Save the data sample including images and metadata.
 
@@ -31,6 +31,7 @@ def save_data_sample(data_save_dir, n, name, pose, out, UR5):
     pose (dict): Pose information.
     out (dict): Output from the depth camera.
     UR5 (UR5RobotController): The robot controller instance.
+    T_end2cam (m3d.Transform): Transformation from the end effector to the camera.
     """
 
     save_dir = {
@@ -133,7 +134,7 @@ def acquire_new_data_from_object():
             _ = UR5.move_robot(pose=next_pose)
             print("Getting data from the camera...")
             out = DC.get_frames(return_intrinsics=True, with_repair=False)
-            save_data_sample(data_save_dir, n, name, pose, out, UR5)
+            save_data_sample(data_save_dir, n, name, pose, out, UR5, T_end2cam)
             # UR5.go_init() #TODO find a way to optimize the robot path otherwise go back to initial position every time
     except KeyboardInterrupt:
         print("Keyboard interrupt detected. Closing connections.")
@@ -188,7 +189,7 @@ def acquire_new_data_from_object_demo():
             UR5.move_robot(pose=next_pose)
             print("Getting data from the camera...")
             out = DC.get_frames(return_intrinsics=True, with_repair=False)
-            save_data_sample(data_save_dir, n, name, pose, out, UR5)
+            save_data_sample(data_save_dir, n, name, pose, out, UR5, T_end2cam)
     except KeyboardInterrupt:
         print("Keyboard interrupt detected. Closing connections.")
     except Exception as e:
@@ -260,7 +261,7 @@ def acquire_new_data_from_object_with_joints():
 
             print("Saving the data...")
             save_img_start_time = time.time()
-            save_data_sample(data_save_dir, n, name, pose, out, UR5)
+            save_data_sample(data_save_dir, n, name, pose, out, UR5, T_end2cam)
             save_img_end_time = time.time()
             save_img_time += save_img_end_time - save_img_start_time
 
