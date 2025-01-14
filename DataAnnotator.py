@@ -49,21 +49,6 @@ class Annotator2DBBox:
         save_vis_dir (str): The directory for saving the visualization.
         """
 
-        # HSV space
-        """
-        # Convert to HSV color space
-        hsv = cv2.cvtColor(self.raw_color_img, cv2.COLOR_BGR2HSV)
-        # Define lower and upper bounds for white in HSV space
-        lower_white = np.array([42, 12, 88]) #96968F
-        upper_white = np.array([96, 50, 250]) #545855
-        # Create the mask to detect white color
-        mask = cv2.inRange(hsv, lower_white, upper_white)
-        # Invert the mask to segment the object
-        mask_inv = cv2.bitwise_not(mask)
-        # Extract the object
-        segmented_object = cv2.bitwise_and(self.raw_color_img, self.raw_color_img, mask=mask_inv)
-        """
-
         rgb_img = self.color_img_rgb
         gray = cv2.cvtColor(rgb_img, cv2.COLOR_RGB2GRAY)
         _, mask = cv2.threshold(gray, white_range[0], white_range[1], cv2.THRESH_BINARY)
@@ -73,7 +58,52 @@ class Annotator2DBBox:
         rgba_image[np.all(rgba_image[:, :, :3] == [0, 0, 0], axis=-1)] = [0, 0, 0, 0]
 
         if show_result:
-            cv2.imshow("Result of background removal based on chroma key", rgba_image)
+            cv2.imshow(
+                "Result of background removal based on chroma key (grayscale)",
+                rgba_image,
+            )
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
+
+        if save_vis_dir is not None:
+            filename = os.path.basename(self.color_img_path).replace(
+                "color", "remove_bkg_chroma_key"
+            )
+            cv2.imwrite(
+                os.path.join(save_vis_dir, filename),
+                cv2.cvtColor(rgba_image, cv2.COLOR_BGR2RGB),
+            )
+
+        return rgba_image
+
+    def remove_bkg_chroma_key_HSV(
+        self,
+        lower_white=np.array([0, 0, 168]),
+        upper_white=np.array([172, 111, 255]),
+        show_result=False,
+        save_vis_dir=None,
+    ):
+        """
+        Extract the object in the foreground based on chroma key
+
+        Parameters:
+        show_result (bool): Indicator of showing the visualization or not.
+        save_vis_dir (str): The directory for saving the visualization.
+        """
+
+        rgb_img = self.color_img_rgb
+        hsv = cv2.cvtColor(rgb_img, cv2.COLOR_RGB2HSV)
+        mask = cv2.inRange(hsv, lower_white, upper_white)
+        mask_inv = cv2.bitwise_not(mask)
+        mask_inv_3ch = cv2.cvtColor(mask_inv, cv2.COLOR_GRAY2BGR)
+        colors_image = cv2.bitwise_and(rgb_img, mask_inv_3ch)
+        rgba_image = cv2.cvtColor(colors_image, cv2.COLOR_RGB2RGBA)
+        rgba_image[np.all(rgba_image[:, :, :3] == [0, 0, 0], axis=-1)] = [0, 0, 0, 0]
+
+        if show_result:
+            cv2.imshow(
+                "Result of background removal based on chroma key (HSV)", rgba_image
+            )
             cv2.waitKey(0)
             cv2.destroyAllWindows()
 
@@ -105,10 +135,10 @@ class Annotator2DBBox:
 
         clipping_distance = clipping_distance_in_meters / self.depth_scale
 
-        grey_color = 255
+        gray_color = 255
         bg_removed = np.where(
             (depth_img > clipping_distance) | (depth_img <= 0),
-            grey_color,
+            gray_color,
             color_image,
         )
 
@@ -593,20 +623,27 @@ def test_3DBBox():
     DA_3DBBox.visualize_3dbbox(oriented_3dbbox)
 
 
+def test_bkg_remove(method):
+    """
+    Test background removal functions
+    """
+    annotator = Annotator2DBBox(color_img_path, depth_img_path, meta_path)
+
+    if method == "grayscale":
+        _ = annotator.remove_bkg_chroma_key(show_result=True)
+    elif method == "HSV":
+        _ = annotator.remove_bkg_chroma_key_HSV(show_result=True)
+    elif method == "depth":
+        _ = annotator.remove_bkg_depth_value(show_result=True)
+    else:
+        raise ValueError("Invalid method")
+
+
 if __name__ == "__main__":
-    color_img_path = "results/acquired_data/test/color_000000.png"
-    depth_img_path = os.path.join(
-        os.path.dirname(color_img_path),
-        os.path.basename(color_img_path).replace("color", "depth"),
-    )
-    meta_path_ = os.path.join(
-        os.path.dirname(color_img_path),
-        os.path.basename(color_img_path).replace("color", "meta"),
-    )
+    color_img_path = "doc/acquired_data/A0/color/color_000000.png"
+    depth_img_path = color_img_path.replace("color", "depth")
+    meta_path_ = color_img_path.replace("color", "meta")
     meta_path = os.path.splitext(meta_path_)[0] + ".json"
 
-    test_2DBBox()
-
-    test_6DPose()
-
-    test_3DBBox()
+    test_bkg_remove("grayscale")
+    test_bkg_remove("HSV")
