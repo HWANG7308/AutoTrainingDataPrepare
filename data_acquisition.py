@@ -10,17 +10,17 @@ import json
 from pathlib import Path
 import time
 import datetime
-from tqdm import tqdm
 import math
 import math3d as m3d
 import cv2
+import numpy as np
 from PoseGenerator import PoseGenerator
 from URController import UR5RobotController
 from CameraController import D435
 from utils import get_selection
 
 
-def save_data_sample(data_save_dir, n, name, pose, out, UR5, T_end2cam):
+def save_data_sample(data_save_dir, n, name, pose, out, UR5):
     """
     Save the data sample including images and metadata.
 
@@ -35,7 +35,12 @@ def save_data_sample(data_save_dir, n, name, pose, out, UR5, T_end2cam):
 
     save_dir = {
         key: os.path.join(data_save_dir, key.split("_")[0])
-        for key in ["color_img_dir", "depth_img_dir", "meta_info_dir"]
+        for key in [
+            "color_img_dir",
+            "color-cropped_img_dir",
+            "depth_img_dir",
+            "meta_info_dir",
+        ]
     }
 
     for dir_path in save_dir.keys():
@@ -43,10 +48,21 @@ def save_data_sample(data_save_dir, n, name, pose, out, UR5, T_end2cam):
 
     color_image = out.get("color")
     depth_image = out.get("depth")
+
     if color_image is not None:
         cv2.imwrite(
             os.path.join(save_dir.get("color_img_dir"), f"color_{n:06d}.png"),
             color_image,
+        )
+        color_cropped_image = color_image[
+            color_image.shape[0] // 2 - 240 : color_image.shape[0] // 2 + 240,
+            color_image.shape[1] // 2 - 320 : color_image.shape[1] // 2 + 320,
+        ]
+        cv2.imwrite(
+            os.path.join(
+                save_dir.get("color-cropped_img_dir"), f"color-cropped_{n:06d}.png"
+            ),
+            color_cropped_image,
         )
     else:
         print(f"Warning: Color image for sample {n} is None and will not be saved.")
@@ -64,7 +80,7 @@ def save_data_sample(data_save_dir, n, name, pose, out, UR5, T_end2cam):
         "time": datetime.datetime.today().strftime("%Y-%m-%d, %H:%M:%S"),
         "view_point_id": n,
         "robot_arm_joints": UR5.get_joints().tolist(),
-        "object_pose": pose.get("T_obj2cam").inverse().get_matrix().tolist(),
+        "object_pose": pose.get("T_obj2cam").get_inverse().get_matrix().tolist(),
         "tf_rob2end": pose.get("T_rob2end").get_matrix().tolist(),
         "intrinsics_color": out.get("color_intr"),
         "depth_scale": out.get("depth_scale"),
@@ -117,7 +133,7 @@ def acquire_new_data_from_object():
             _ = UR5.move_robot(pose=next_pose)
             print("Getting data from the camera...")
             out = DC.get_frames(return_intrinsics=True, with_repair=False)
-            save_data_sample(data_save_dir, n, name, pose, out, UR5, T_end2cam)
+            save_data_sample(data_save_dir, n, name, pose, out, UR5)
             # UR5.go_init() #TODO find a way to optimize the robot path otherwise go back to initial position every time
     except KeyboardInterrupt:
         print("Keyboard interrupt detected. Closing connections.")
@@ -188,14 +204,12 @@ def acquire_new_data_from_object_with_joints():
     Acquire new images from an object by taking images with given robot joint positions.
     TODO fix this function
     """
-    import numpy as np
+    UR5 = UR5RobotController(ROBOT_IP)
+    DC = D435(color_width=1920, color_height=1080, depth_width=1280, depth_height=720)
 
     robot_time = 0.0
     camera_time = 0.0
     save_img_time = 0.0
-
-    UR5 = UR5RobotController(ROBOT_IP)
-    DC = D435()
 
     robot_poses = PoseGenerator(T_rob2obj, T_end2cam).generate_positions(
         change_first="azimuth"
@@ -225,12 +239,12 @@ def acquire_new_data_from_object_with_joints():
     os.makedirs(data_save_dir, exist_ok=True)
 
     try:
-        for n, pose in enumerate(
-            tqdm(
-                robot_poses,
-                desc=f"Taking the image with robot joint {n} ({robot_joints.get(str(n))})",
+        for n, pose in enumerate(robot_poses):
+            print("=" * 70)
+            print(
+                f"Taking the image with robot joint configurations {n} ({robot_joints.get(str(n))})..."
             )
-        ):
+
             print("Moving the robot to the target position...")
             robot_start_time = time.time()
             while not UR5.at_target(robot_joints.get(str(n))):
@@ -244,7 +258,7 @@ def acquire_new_data_from_object_with_joints():
             camera_end_time = time.time()
             camera_time += camera_end_time - camera_start_time
 
-            print("Saving data...")
+            print("Saving the data...")
             save_img_start_time = time.time()
             save_data_sample(data_save_dir, n, name, pose, out, UR5)
             save_img_end_time = time.time()
@@ -294,7 +308,7 @@ if __name__ == "__main__":
     root = str(Path(__file__).resolve().parent)
 
     # ROBOT_IP = "192.168.2.144"  # URSim
-    ROBOT_IP = "192.168.2.196"  # UR5
+    ROBOT_IP = "192.168.2.196"  # UR5cb3
 
     T_rob2obj = m3d.Transform(
         m3d.Orientation.new_euler((math.pi / 2, 0, math.pi), "XYZ"),
