@@ -16,7 +16,7 @@ from tqdm import tqdm
 import math
 import math3d as m3d
 import cv2
-import HandEyeCalibration
+import hand_eye_calibration
 from PoseGenerator import PoseGenerator
 from URController import UR5RobotController
 from CameraController import D435
@@ -577,11 +577,11 @@ def perform_hand_eye_calibration():
         T_rob2obj, T_end2cam
     ).generate_positions_hand_eye_calibration()
 
-    images = HandEyeCalibration.get_images(robot_poses, UR5, DC)
+    images = hand_eye_calibration.get_images(robot_poses, UR5, DC)
 
-    camera_poses = HandEyeCalibration.get_camera_poses(images, DC, method="chessboard")
+    camera_poses = hand_eye_calibration.get_camera_poses(images, DC, method="chessboard")
 
-    T_end2cam_calib = HandEyeCalibration(robot_poses, camera_poses)
+    T_end2cam_calib = hand_eye_calibration(robot_poses, camera_poses)
 
     print("Calibrated T_end2cam:\n", T_end2cam_calib)
 
