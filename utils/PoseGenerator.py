@@ -268,7 +268,7 @@ def visualize_robot_position():
 
 
 def test_robot_position(save_joints=True):
-    from URController import UR5RobotController
+    from utils.URController import UR5RobotController
 
     UR5 = UR5RobotController(ROBOT_IP, acceleration=1, velocity=1)
 
@@ -345,7 +345,7 @@ def test_robot_position(save_joints=True):
 
 
 def test_robot_joint():
-    from URController import UR5RobotController
+    from utils.URController import UR5RobotController
 
     UR5 = UR5RobotController(ROBOT_IP, acceleration=1, velocity=1)
 
@@ -367,7 +367,7 @@ def test_robot_joint():
 
 if __name__ == "__main__":
 
-    from utils import get_selection
+    from utils.utils import get_selection
 
     # Create a UR5 robot controller
     # ROBOT_IP = "192.168.2.144"  # URSim

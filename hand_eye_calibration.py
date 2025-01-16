@@ -8,9 +8,9 @@ import cv2
 import numpy as np
 import math
 import math3d as m3d
-from PoseGenerator import PoseGenerator
-from URController import UR5RobotController
-from CameraController import D435
+from utils.PoseGenerator import PoseGenerator
+from utils.URController import UR5RobotController
+from utils.CameraController import D435
 
 
 def get_images(robot_poses, UR5, DC):

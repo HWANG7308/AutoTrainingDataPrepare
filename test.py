@@ -6,7 +6,7 @@ Testing functions
 ====================
 """
 
-from utils import get_selection
+from utils.utils import get_selection
 from pathlib import Path
 
 

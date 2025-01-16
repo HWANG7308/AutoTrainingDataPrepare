@@ -14,10 +14,10 @@ import math
 import math3d as m3d
 import cv2
 import numpy as np
-from PoseGenerator import PoseGenerator
-from URController import UR5RobotController
-from CameraController import D435
-from utils import get_selection
+from utils.PoseGenerator import PoseGenerator
+from utils.URController import UR5RobotController
+from utils.CameraController import D435
+from utils.utils import get_selection
 
 
 def save_data_sample(

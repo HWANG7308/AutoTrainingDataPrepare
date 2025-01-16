@@ -17,11 +17,11 @@ import math
 import math3d as m3d
 import cv2
 import hand_eye_calibration
-from PoseGenerator import PoseGenerator
-from URController import UR5RobotController
-from CameraController import D435
-from DataAnnotator import Annotator2DBBox, Annotator3DBBox, Annotator6DPose
-from utils import get_selection
+from utils.PoseGenerator import PoseGenerator
+from utils.URController import UR5RobotController
+from utils.CameraController import D435
+from utils.DataAnnotator import Annotator2DBBox, Annotator3DBBox, Annotator6DPose
+from utils.utils import get_selection
 
 
 """

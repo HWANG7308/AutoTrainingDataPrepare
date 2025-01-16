@@ -11,8 +11,8 @@ from pathlib import Path
 import time
 import datetime
 from tqdm import tqdm
-from DataAnnotator import Annotator2DBBox, Annotator3DBBox, Annotator6DPose
-from utils import get_selection
+from utils.DataAnnotator import Annotator2DBBox, Annotator3DBBox, Annotator6DPose
+from utils.utils import get_selection
 
 
 def save_annotations(data_save_dir, n, annotation):
