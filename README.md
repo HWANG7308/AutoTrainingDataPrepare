@@ -12,6 +12,25 @@ https://bitbucket.org/RopeRobotics/ur-interface/src/master/
 
 The visualization of annotation labels is adapted from https://github.com/NVlabs/FoundationPose
 
+## How to
+
+Before running the program, you need to specify the following parameters.
+
+1. The ip address of your robot to guarantee a successful connection to your robot.
+2. The numbers of the step the robot should move regarding the polar angle and the azimuthal angle.
+
+<summary>Image collection</summary>
+
+```bash
+python data_acquisition.py
+```
+<summary>Image annotation</summary>
+
+```bash
+python data_annotation.py
+```
+
+
 ## TODO
 High priority
 - [x] Robot controller
