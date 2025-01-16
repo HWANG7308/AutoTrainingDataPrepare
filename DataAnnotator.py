@@ -36,7 +36,7 @@ class Annotator2DBBox:
 
     def remove_bkg_chroma_key(
         self,
-        white_range=(175, 255),
+        white_range=(170, 255),
         show_result=False,
         save_vis_dir=None,
     ):
@@ -66,11 +66,15 @@ class Annotator2DBBox:
             cv2.destroyAllWindows()
 
         if save_vis_dir is not None:
+            os.makedirs(
+                os.path.join(save_vis_dir, "remove_bkg_chroma_key_grayscale"),
+                exist_ok=True,
+            )
             filename = os.path.basename(self.color_img_path).replace(
                 "color", "remove_bkg_chroma_key"
             )
             cv2.imwrite(
-                os.path.join(save_vis_dir, filename),
+                os.path.join(save_vis_dir, "remove_bkg_chroma_key_grayscale", filename),
                 cv2.cvtColor(rgba_image, cv2.COLOR_BGR2RGB),
             )
 
@@ -108,11 +112,15 @@ class Annotator2DBBox:
             cv2.destroyAllWindows()
 
         if save_vis_dir is not None:
+            os.makedirs(
+                os.path.join(save_vis_dir, "remove_bkg_chroma_key_hsv"),
+                exist_ok=True,
+            )
             filename = os.path.basename(self.color_img_path).replace(
-                "color", "remove_bkg_chroma_key"
+                "color", "remove_bkg_chroma_key_hsv"
             )
             cv2.imwrite(
-                os.path.join(save_vis_dir, filename),
+                os.path.join(save_vis_dir, "remove_bkg_chroma_key_hsv", filename),
                 cv2.cvtColor(rgba_image, cv2.COLOR_BGR2RGB),
             )
 
@@ -148,11 +156,15 @@ class Annotator2DBBox:
             cv2.destroyAllWindows()
 
         if save_vis_dir is not None:
+            os.makedirs(
+                os.path.join(save_vis_dir, "remove_bkg_depth_value"),
+                exist_ok=True,
+            )
             filename = os.path.basename(self.color_img_path).replace(
                 "color", "remove_bkg_depth_value"
             )
             cv2.imwrite(
-                os.path.join(save_vis_dir, filename),
+                os.path.join(save_vis_dir, "remove_bkg_depth_value", filename),
                 cv2.cvtColor(bg_removed, cv2.COLOR_BGR2RGB),
             )
 
@@ -201,9 +213,13 @@ class Annotator2DBBox:
         vis = self.visualize_2dbbox(show_result)
 
         if save_vis_dir is not None:
+            os.makedirs(
+                os.path.join(save_vis_dir, "2dbbox"),
+                exist_ok=True,
+            )
             filename = os.path.basename(self.color_img_path).replace("color", "2dbbox")
             cv2.imwrite(
-                os.path.join(save_vis_dir, filename),
+                os.path.join(save_vis_dir, "2dbbox", filename),
                 cv2.cvtColor(vis, cv2.COLOR_BGR2RGB),
             )
 
@@ -239,10 +255,6 @@ class Annotator6DPose:
         if self.color_img_bgr is None:
             raise FileNotFoundError(f"Color image not found at {self.color_img_path}")
         self.color_img_rgb = cv2.cvtColor(self.color_img_bgr, cv2.COLOR_BGR2RGB)
-
-        # self.depth_img = cv2.imread(self.depth_img_path)
-        # if self.depth_img is None:
-        #     raise FileNotFoundError(f"Depth image not found at {self.depth_img_path}")
 
         with open(self.meta_path, "r") as f:
             self.meta = json.load(f)
@@ -289,9 +301,13 @@ class Annotator6DPose:
         vis = self.visualize_6dpose(show_result)
 
         if save_vis_dir is not None:
+            os.makedirs(
+                os.path.join(save_vis_dir, "6dpose"),
+                exist_ok=True,
+            )
             filename = os.path.basename(self.color_img_path).replace("color", "6dpose")
             cv2.imwrite(
-                os.path.join(save_vis_dir, filename),
+                os.path.join(save_vis_dir, "6dpose", filename),
                 vis,
             )
 
@@ -304,7 +320,7 @@ class Annotator6DPose:
         vis = self.draw_xyz_axis(
             color,
             ob_in_cam=np.asarray(self.object_pose),
-            scale=0.1,
+            scale=0.02,
             K=self.cam_K,
             thickness=3,
             transparency=0,
@@ -402,6 +418,7 @@ class Annotator6DPose:
 
 
 class Annotator3DBBox:
+    # TODO: need to fix the shift problem in the 3D BBox (as the object pose is not annotated at the object center but the center of the object's bottom)
     def __init__(self, color_img_path, depth_img_path, meta_path):
         self.color_img_path = color_img_path
         self.depth_img_path = depth_img_path
@@ -489,9 +506,13 @@ class Annotator3DBBox:
         self.annotation = annotation
 
         if save_vis_dir is not None:
+            os.makedirs(
+                os.path.join(save_vis_dir, "3dbbox"),
+                exist_ok=True,
+            )
             filename = os.path.basename(self.color_img_path).replace("color", "3dbbox")
             cv2.imwrite(
-                os.path.join(save_vis_dir, filename),
+                os.path.join(save_vis_dir, "3dbbox", filename),
                 vis,
             )
 
