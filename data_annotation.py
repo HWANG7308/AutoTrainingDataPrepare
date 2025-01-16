@@ -15,17 +15,18 @@ from utils.DataAnnotator import Annotator2DBBox, Annotator3DBBox, Annotator6DPos
 from utils.utils import get_selection
 
 
-def save_annotations(data_save_dir, n, annotation):
+def save_annotations(annotation_type, data_save_dir, n, annotation):
     """
     Save the annotations to a JSON file.
 
     Parameters:
+    annotion_type (str): Type of annotation ("2dbbox", "6dpose", "3dbbox", "img_seg", "remove_bkg_chroma_key").
     data_save_dir (str): Directory to save the annotations.
     n (int): Index of the current sample.
     annotation (dict): Annotation to save.
     """
     os.makedirs(data_save_dir, exist_ok=True)
-    with open(os.path.join(data_save_dir, f"meta_{n:06d}.json"), "w") as f:
+    with open(os.path.join(data_save_dir, f"{annotation_type}_{n:06d}.json"), "w") as f:
         json.dump(annotation, f, indent=4)
     # print(f"Data annotation {n} saved in {data_save_dir}")
 
@@ -130,6 +131,7 @@ def create_labels(annotation_type, save_vis=False):
             )
 
             save_annotations(
+                annotation_type,
                 os.path.join(data_save_dir, name, "label", annotation_type),
                 n,
                 annotation,
