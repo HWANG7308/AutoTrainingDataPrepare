@@ -29,7 +29,7 @@ High priority
 Low priority
 - [ ] Robot path planning and optimization
 - [ ] Data annotation format confirmation (3D bounding box)
-- [ ] 3D bounding box annotation
+- [x] 3D bounding box annotation
 - [ ] Training and testing (3D object detection)
 - [ ] More testing
 - [ ] Demonstration video
