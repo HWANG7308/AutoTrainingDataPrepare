@@ -77,6 +77,8 @@ def save_data_sample(
                     ),
                     color_cropped_image,
                 )
+            # TODO: Add a warning if the image is too small to be cropped
+            # TODO: Add a function to white out the background instead of cropping
             else:
                 print(
                     f"Warning: Color image for sample {n} is too small to be cropped."
