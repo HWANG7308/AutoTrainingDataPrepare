@@ -1,0 +1,24 @@
+{
+    "shapes": [
+        {
+            "points": [
+                [
+                    865,
+                    507
+                ],
+                [
+                    1082,
+                    692
+                ]
+            ],
+            "shape_type": "rectangle"
+        }
+    ],
+    "img_path": "color_000056.png",
+    "img_height": 1080,
+    "img_width": 1920,
+    "class": "A0",
+    "time": [
+        "2025-01-16, 10:13:33"
+    ]
+}

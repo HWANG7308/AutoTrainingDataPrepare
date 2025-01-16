@@ -47,6 +47,8 @@ def create_labels(annotation_type, save_vis=False):
 
     names = sorted(os.listdir(raw_data_dir))
 
+    annotation_start_time = time.time()
+
     for _, name in enumerate(names):
 
         color_img_dir = os.path.join(raw_data_dir, name, "color")
@@ -133,6 +135,12 @@ def create_labels(annotation_type, save_vis=False):
                 annotation,
             )
 
+    annotation_end_time = time.time()
+    annotation_time = annotation_end_time - annotation_start_time
+    time_report = {"Annotation time": annotation_time}
+    with open(os.path.join(data_save_dir, f"time_{annotation_type}.json"), "w") as f:
+        json.dump(time_report, f, indent=4)
+
 
 def create_labels_2dbbox():
     """
@@ -196,11 +204,7 @@ def main():
             break
         else:
             print(f"Selected: {selection}")
-            annotation_start_time = time.time()
             s[selection]()
-            annotation_end_time = time.time()
-            annotation_time = annotation_end_time - annotation_start_time
-            print(f"Annotation time: {annotation_time}")
 
 
 if __name__ == "__main__":
