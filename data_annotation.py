@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 import time
 import datetime
+import numpy as np
 from tqdm import tqdm
 from utils.DataAnnotator import Annotator2DBBox, Annotator3DBBox, Annotator6DPose
 from utils.utils import get_selection
@@ -29,6 +30,47 @@ def save_annotations(annotation_type, data_save_dir, n, annotation):
     with open(os.path.join(data_save_dir, f"{annotation_type}_{n:06d}.json"), "w") as f:
         json.dump(annotation, f, indent=4)
     # print(f"Data annotation {n} saved in {data_save_dir}")
+
+
+def calculate_T_objc2obj(annotation_front, annotation_top, meta_path):
+    """
+    Calculate the translation from the center of the object bottom to the object center.
+    """
+
+    dist_cam2obj = 0.3  # distance from camera to object bottom
+
+    bbox_front = annotation_front.get("shapes")[0].get("points")
+    bbox_top = annotation_top.get("shapes")[0].get("points")
+
+    with open(meta_path, "r") as f:
+        meta = json.load(f)
+
+    fx = meta.get("intrinsics_color").get("fx")
+    fy = meta.get("intrinsics_color").get("fy")
+    ppx = meta.get("intrinsics_color").get("ppx")
+    ppy = meta.get("intrinsics_color").get("ppy")
+
+    # TODO: check this calculation, especially the scaling factor (from image pixels to actual distance)
+    objc_x = (bbox_front[0][0] + bbox_front[1][0]) / 2
+    objc_y = (bbox_front[0][1] + bbox_front[1][1]) / 2
+    objc_z = (bbox_top[0][1] + bbox_top[1][1]) / 2
+
+    translation_x = (objc_x - ppx) * dist_cam2obj / fx
+    translation_y = (objc_y - ppy) * dist_cam2obj / fy
+    translation_z = (objc_z - ppy) * dist_cam2obj / fy
+
+    T_objc2obj = np.array(
+        [
+            [1, 0, 0, translation_x],
+            [0, 1, 0, translation_y],
+            [0, 0, 1, translation_z],
+            [0, 0, 0, 1],
+        ]
+    )
+
+    print(f"Translation from object bottom to object center: {T_objc2obj}")
+
+    return T_objc2obj
 
 
 def create_labels(annotation_type, save_vis=False):
@@ -55,7 +97,7 @@ def create_labels(annotation_type, save_vis=False):
         color_img_dir = os.path.join(raw_data_dir, name, "color")
         color_imgs = os.listdir(color_img_dir)
 
-        if annotation_type == "3dbbox":
+        if annotation_type == "3dbbox" or annotation_type == "6dpose":
             front_view_id = 0
             top_view_id = 64  # TODO: find a robust method to get the top view images
 
@@ -70,7 +112,7 @@ def create_labels(annotation_type, save_vis=False):
                 front_color_img_path, front_depth_img_path, front_meta_path
             )
             _ = front_annotator.remove_bkg_chroma_key()
-            front_annotation = front_annotator.annotate()
+            annotation_front = front_annotator.annotate()
 
             # Annotation for top view
             top_color_img_path = os.path.join(
@@ -83,7 +125,11 @@ def create_labels(annotation_type, save_vis=False):
                 top_color_img_path, top_depth_img_path, top_meta_path
             )
             _ = top_annotator.remove_bkg_chroma_key()
-            top_annotation = top_annotator.annotate()
+            annotation_top = top_annotator.annotate()
+
+            T_objc2obj = calculate_T_objc2obj(
+                annotation_front, annotation_top, meta_path=front_meta_path
+            )
 
         for n, color_img in enumerate(
             tqdm(color_imgs, desc=f"Processing data for {name}")
@@ -112,11 +158,15 @@ def create_labels(annotation_type, save_vis=False):
                 )
                 continue
             elif annotation_type == "6dpose":
-                annotator = Annotator6DPose(color_img_path, depth_img_path, meta_path)
+                annotator = Annotator6DPose(
+                    color_img_path, depth_img_path, meta_path, T_objc2obj
+                )
                 annotation = annotator.annotate(save_vis_dir=save_vis_dir)
             elif annotation_type == "3dbbox":
-                annotator = Annotator3DBBox(color_img_path, depth_img_path, meta_path)
-                _ = annotator.init_front_top_views(front_annotation, top_annotation)
+                annotator = Annotator3DBBox(
+                    color_img_path, depth_img_path, meta_path, T_objc2obj
+                )
+                _ = annotator.init_front_top_views(annotation_front, annotation_top)
                 annotation = annotator.annotate(save_vis_dir=save_vis_dir)
             elif annotation_type == "img_seg":
                 raise ValueError("Yet to be merged")  # TODO merge the function
