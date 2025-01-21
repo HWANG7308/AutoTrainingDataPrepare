@@ -233,6 +233,11 @@ def acquire_new_data_from_object_with_joints():
         change_first="azimuth"
     )
 
+    robot_poses[16], robot_poses[17] = (
+        robot_poses[17],
+        robot_poses[16],
+    )  # swap the positions of the robot poses due to the robot's limitation (the robot joints were set manually) TODO: find a way to optimize the robot path
+
     with open("data/robot_joints_demo3.json", "r") as f:
         robot_joints = json.load(f)
 
