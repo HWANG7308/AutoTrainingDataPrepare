@@ -95,7 +95,7 @@ def create_labels(annotation_type, save_vis=False):
     for _, name in enumerate(names):
 
         color_img_dir = os.path.join(raw_data_dir, name, "color")
-        color_imgs = os.listdir(color_img_dir)
+        color_imgs = sorted(os.listdir(color_img_dir))
 
         if annotation_type == "3dbbox" or annotation_type == "6dpose":
             front_view_id = 0
