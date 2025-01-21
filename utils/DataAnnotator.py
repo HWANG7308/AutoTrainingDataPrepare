@@ -246,10 +246,11 @@ class Annotator2DBBox:
 
 
 class Annotator6DPose:
-    def __init__(self, color_img_path, depth_img_path, meta_path):
+    def __init__(self, color_img_path, depth_img_path, meta_path, T_objc2obj=np.eye(4)):
         self.color_img_path = color_img_path
         self.depth_img_path = depth_img_path
         self.meta_path = meta_path
+        self.Tobj2objc = T_objc2obj
 
         self.color_img_bgr = cv2.imread(self.color_img_path)
         if self.color_img_bgr is None:
@@ -259,9 +260,9 @@ class Annotator6DPose:
         with open(self.meta_path, "r") as f:
             self.meta = json.load(f)
 
-        self.object_pose = np.matrix(self.meta.get("object_pose"))
+        self.object_pose = T_objc2obj @ np.array(self.meta.get("object_pose"))
 
-        self.transformation_matrix = np.matrix(self.meta.get("object_pose"))
+        self.transformation_matrix = self.object_pose
         self.rotation_matrix = self.object_pose[:3, :3]
         self.translation_vector = self.object_pose[:3, 3]
 
@@ -419,7 +420,7 @@ class Annotator6DPose:
 
 class Annotator3DBBox:
     # TODO: need to fix the shift problem in the 3D BBox (as the object pose is not annotated at the object center but the center of the object's bottom)
-    def __init__(self, color_img_path, depth_img_path, meta_path):
+    def __init__(self, color_img_path, depth_img_path, meta_path, T_objc2obj=np.eye(4)):
         self.color_img_path = color_img_path
         self.depth_img_path = depth_img_path
         self.meta_path = meta_path
@@ -439,7 +440,7 @@ class Annotator3DBBox:
         with open(self.meta_path, "r") as f:
             self.meta = json.load(f)
 
-        self.object_pose = np.matrix(self.meta.get("object_pose"))
+        self.object_pose = T_objc2obj @ np.array(self.meta.get("object_pose"))
 
         self.cam_K = np.array(
             [
@@ -473,13 +474,16 @@ class Annotator3DBBox:
         cuboid_height = bbox_front[1][1] - bbox_front[0][1]
         cuboid_depth = bbox_top[1][1] - bbox_top[0][1]
 
-        # Convert from the pixel space to real-world space TODO: fix the conversion
-        img_height, img_width, _ = self.color_img_bgr.shape
+        # Convert from the pixel space to real-world space
         dist_cam2obj = 0.3  # The distance between the camera and the object, i.e., radius in PoseGenerator
+        fx = self.meta.get("intrinsics_color").get("fx")
+        fy = self.meta.get("intrinsics_color").get("fy")
+        ppx = self.meta.get("intrinsics_color").get("ppx")
+        ppy = self.meta.get("intrinsics_color").get("ppy")
 
-        cuboid_width = cuboid_width / img_width * dist_cam2obj
-        cuboid_height = cuboid_height / img_height * dist_cam2obj
-        cuboid_depth = cuboid_depth / img_height * dist_cam2obj
+        cuboid_width = cuboid_width * dist_cam2obj / fx
+        cuboid_height = cuboid_height * dist_cam2obj / fy
+        cuboid_depth = cuboid_depth * dist_cam2obj / fy
 
         extents = np.asarray((cuboid_width, cuboid_height, cuboid_depth))
 
