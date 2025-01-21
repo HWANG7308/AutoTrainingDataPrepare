@@ -430,10 +430,6 @@ class Annotator3DBBox:
             raise FileNotFoundError(f"Color image not found at {self.color_img_path}")
         self.color_img_rgb = cv2.cvtColor(self.color_img_bgr, cv2.COLOR_BGR2RGB)
 
-        # self.depth_img = cv2.imread(self.depth_img_path)
-        # if self.depth_img is None:
-        #     raise FileNotFoundError(f"Depth image not found at {self.depth_img_path}")
-
         self.annotation_top = None
         self.annotation_front = None
 
@@ -478,8 +474,6 @@ class Annotator3DBBox:
         dist_cam2obj = 0.3  # The distance between the camera and the object, i.e., radius in PoseGenerator
         fx = self.meta.get("intrinsics_color").get("fx")
         fy = self.meta.get("intrinsics_color").get("fy")
-        ppx = self.meta.get("intrinsics_color").get("ppx")
-        ppy = self.meta.get("intrinsics_color").get("ppy")
 
         cuboid_width = cuboid_width * dist_cam2obj / fx
         cuboid_height = cuboid_height * dist_cam2obj / fy
