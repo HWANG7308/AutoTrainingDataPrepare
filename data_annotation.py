@@ -1,5 +1,5 @@
 """
-Data annotation functions
+Data annotation functions for 2D bounding box, 6D pose, 3D bounding box, and image segmentation.
 
 Created by Hao Wang
 License: MIT License
