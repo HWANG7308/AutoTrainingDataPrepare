@@ -419,7 +419,6 @@ class Annotator6DPose:
 
 
 class Annotator3DBBox:
-    # TODO: need to fix the shift problem in the 3D BBox (as the object pose is not annotated at the object center but the center of the object's bottom)
     def __init__(self, color_img_path, depth_img_path, meta_path, T_objc2obj=np.eye(4)):
         self.color_img_path = color_img_path
         self.depth_img_path = depth_img_path
