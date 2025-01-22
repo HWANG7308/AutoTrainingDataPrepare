@@ -21,7 +21,14 @@ from utils.utils import get_selection
 
 
 def save_data_sample(
-    data_save_dir, n, name, pose, out, UR5, T_end2cam, img_crop_size=(480, 640)
+    data_save_dir,
+    n,
+    name,
+    pose,
+    out,
+    robot_arm_joints,
+    T_end2cam,
+    img_crop_size=(480, 640),
 ):
     """
     Save the data sample including images and metadata.
@@ -32,7 +39,7 @@ def save_data_sample(
     name (str): Name of the object.
     pose (dict): Pose information.
     out (dict): Output from the depth camera.
-    UR5 (UR5RobotController): The robot controller instance.
+    robot_arm_joints (np.ndarray): Joint positions of the robot arm.
     T_end2cam (m3d.Transform): Transformation from the end effector to the camera.
     """
 
@@ -98,7 +105,7 @@ def save_data_sample(
         "class": name,
         "time": datetime.datetime.today().strftime("%Y-%m-%d, %H:%M:%S"),
         "view_point_id": n,
-        "robot_arm_joints": UR5.get_joints().tolist(),
+        "robot_arm_joints": robot_arm_joints.tolist(),
         "object_pose": pose.get("T_obj2cam").get_inverse().get_matrix().tolist(),
         "tf_rob2end": pose.get("T_rob2end").get_matrix().tolist(),
         "intrinsics_color": out.get("color_intr"),
@@ -283,7 +290,9 @@ def acquire_new_data_from_object_with_joints():
 
             print("Saving the data...")
             save_img_start_time = time.time()
-            save_data_sample(data_save_dir, n, name, pose, out, UR5, T_end2cam)
+            save_data_sample(
+                data_save_dir, n, name, pose, out, UR5.get_joints(), T_end2cam
+            )
             save_img_end_time = time.time()
             save_img_time += save_img_end_time - save_img_start_time
 
