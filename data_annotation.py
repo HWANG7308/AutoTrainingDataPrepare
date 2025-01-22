@@ -68,8 +68,6 @@ def calculate_T_objc2obj(annotation_front, annotation_top, meta_path):
         ]
     )
 
-    print(f"Translation from object bottom to object center: {T_objc2obj}")
-
     return T_objc2obj
 
 
