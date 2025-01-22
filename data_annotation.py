@@ -63,7 +63,7 @@ def calculate_T_objc2obj(annotation_front, annotation_top, meta_path):
         [
             [1, 0, 0, translation_x],
             [0, 1, 0, translation_y],
-            [0, 0, 1, translation_z],
+            [0, 0, 1, -translation_z],
             [0, 0, 0, 1],
         ]
     )
