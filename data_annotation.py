@@ -32,9 +32,10 @@ def save_annotations(annotation_type, data_save_dir, n, annotation):
     # print(f"Data annotation {n} saved in {data_save_dir}")
 
 
-def calculate_T_objc2obj(annotation_front, annotation_top, meta_path):
+def calculate_T_obj2objc(annotation_front, annotation_top, meta_path):
     """
     Calculate the translation from the center of the object bottom to the object center.
+    # TODO find a more robust method to calculate the translation.
     """
 
     dist_cam2obj = 0.3  # distance from camera to object bottom
@@ -50,7 +51,6 @@ def calculate_T_objc2obj(annotation_front, annotation_top, meta_path):
     ppx = meta.get("intrinsics_color").get("ppx")
     ppy = meta.get("intrinsics_color").get("ppy")
 
-    # TODO: check this calculation, especially the scaling factor (from image pixels to actual distance)
     objc_x = (bbox_front[0][0] + bbox_front[1][0]) / 2
     objc_y = (bbox_front[0][1] + bbox_front[1][1]) / 2
     objc_z = (bbox_top[0][1] + bbox_top[1][1]) / 2
@@ -59,7 +59,7 @@ def calculate_T_objc2obj(annotation_front, annotation_top, meta_path):
     translation_y = (objc_y - ppy) * dist_cam2obj / fy
     translation_z = (objc_z - ppy) * dist_cam2obj / fy
 
-    T_objc2obj = np.array(
+    T_obj2objc = np.array(
         [
             [1, 0, 0, translation_x],
             [0, 1, 0, translation_y],
@@ -68,7 +68,7 @@ def calculate_T_objc2obj(annotation_front, annotation_top, meta_path):
         ]
     )
 
-    return T_objc2obj
+    return T_obj2objc
 
 
 def create_labels(annotation_type, save_vis=False):
@@ -125,7 +125,7 @@ def create_labels(annotation_type, save_vis=False):
             _ = top_annotator.remove_bkg_chroma_key()
             annotation_top = top_annotator.annotate()
 
-            T_objc2obj = calculate_T_objc2obj(
+            T_obj2objc = calculate_T_obj2objc(
                 annotation_front, annotation_top, meta_path=front_meta_path
             )
 
@@ -157,12 +157,12 @@ def create_labels(annotation_type, save_vis=False):
                 continue
             elif annotation_type == "6dpose":
                 annotator = Annotator6DPose(
-                    color_img_path, depth_img_path, meta_path, T_objc2obj
+                    color_img_path, depth_img_path, meta_path, T_obj2objc
                 )
                 annotation = annotator.annotate(save_vis_dir=save_vis_dir)
             elif annotation_type == "3dbbox":
                 annotator = Annotator3DBBox(
-                    color_img_path, depth_img_path, meta_path, T_objc2obj
+                    color_img_path, depth_img_path, meta_path, T_obj2objc
                 )
                 _ = annotator.init_front_top_views(annotation_front, annotation_top)
                 annotation = annotator.annotate(save_vis_dir=save_vis_dir)
