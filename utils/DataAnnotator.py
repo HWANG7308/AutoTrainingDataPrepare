@@ -246,11 +246,11 @@ class Annotator2DBBox:
 
 
 class Annotator6DPose:
-    def __init__(self, color_img_path, depth_img_path, meta_path, T_objc2obj=np.eye(4)):
+    def __init__(self, color_img_path, depth_img_path, meta_path, T_obj2objc=np.eye(4)):
         self.color_img_path = color_img_path
         self.depth_img_path = depth_img_path
         self.meta_path = meta_path
-        self.Tobj2objc = T_objc2obj
+        self.Tobj2objc = T_obj2objc
 
         self.color_img_bgr = cv2.imread(self.color_img_path)
         if self.color_img_bgr is None:
@@ -260,7 +260,7 @@ class Annotator6DPose:
         with open(self.meta_path, "r") as f:
             self.meta = json.load(f)
 
-        self.object_pose = T_objc2obj @ np.array(self.meta.get("object_pose"))
+        self.object_pose = np.array(self.meta.get("object_pose")) @ self.Tobj2objc
 
         self.transformation_matrix = self.object_pose
         self.rotation_matrix = self.object_pose[:3, :3]
@@ -419,10 +419,11 @@ class Annotator6DPose:
 
 
 class Annotator3DBBox:
-    def __init__(self, color_img_path, depth_img_path, meta_path, T_objc2obj=np.eye(4)):
+    def __init__(self, color_img_path, depth_img_path, meta_path, T_obj2objc=np.eye(4)):
         self.color_img_path = color_img_path
         self.depth_img_path = depth_img_path
         self.meta_path = meta_path
+        self.T_obj2objc = T_obj2objc
 
         self.color_img_bgr = cv2.imread(self.color_img_path)
         if self.color_img_bgr is None:
@@ -435,7 +436,7 @@ class Annotator3DBBox:
         with open(self.meta_path, "r") as f:
             self.meta = json.load(f)
 
-        self.object_pose = T_objc2obj @ np.array(self.meta.get("object_pose"))
+        self.object_pose = np.array(self.meta.get("object_pose")) @ self.T_obj2objc
 
         self.cam_K = np.array(
             [
