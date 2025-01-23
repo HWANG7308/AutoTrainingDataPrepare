@@ -1,5 +1,6 @@
 import os
-import numpy as np
+import random
+import json
 from pathlib import Path
 from utils.utils import get_selection
 
@@ -8,9 +9,9 @@ def make_train_and_test_dataset(
     object_names,
     data_set_type,
     save_name,
-    p_test=0.2,
-    mode="pred",
-    use_extra_data=False,
+    p_val=0.1,
+    p_test=0.1,
+    randon_seed=100,
 ):
     """
     Create training and testing datasets from the given object names.
@@ -19,160 +20,124 @@ def make_train_and_test_dataset(
     object_names (list): List of object names to include in the dataset.
     data_set_type (str): Type of the dataset (e.g., 'segmentation').
     save_name (str): Name to save the dataset.
+    p_val (float): Proportion of the dataset to include in the validation split.
     p_test (float): Proportion of the dataset to include in the test split.
-    mode (str): Mode for the dataset (default is 'pred').
-    use_extra_data (bool): Whether to use extra data for training (default is False).
+    randon_seed (int): Random seed for reproducibility.
     """
 
-    train_samples = []
-    test_samples = []
-    extra_train_samples = []
+    random.seed(randon_seed)
 
-    given_mode = mode
+    train_samples = {}
+    val_samples = {}
+    test_samples = {}
 
-    save_dir = os.path.join(root, "result/data_sets", data_set_type, save_name)
-
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
+    save_dir = os.path.join(root, "result/data_sets", data_set_type)
+    os.makedirs(save_dir, exist_ok=True)
 
     for object_name in object_names:
-        object_path = os.path.join(root, "result/annotated_data", object_name)
-        dirs = os.listdir(object_path)
-        if "extra" in dirs:
-            if data_set_type == "segmentation":
-                i = dirs.index("extra")
-                del dirs[i]
-            else:
-                if not use_extra_data:
-                    i = dirs.index("extra")
-                    del dirs[i]
+        color_img_dir = os.path.join(root, "result/acquired_data", object_name, "color")
+        num_img = len(os.listdir(color_img_dir))
 
-        for d in dirs:
-            dir_path = os.path.join(object_path, d)
-            samples = sorted(os.listdir(dir_path))
-            if samples:
+        num_val = int(p_val * num_img)
+        num_test = int(p_test * num_img)
+        num_train = num_img - num_val - num_test
 
-                if d == "extra":
-                    mode = "new_pred"
-                else:
-                    mode = given_mode
+        train_list = random.sample(range(num_img), num_train)
+        val_list = random.sample(list(set(range(num_img)) - set(train_list)), num_val)
+        test_list = list(set(range(num_img)) - set(train_list) - set(val_list))
 
-                tag = ".{}.label.png".format(mode)
-                l = len(tag)
-                samples = [s[:-l] for s in samples if tag in s]
+        train_samples[object_name] = sorted(train_list)
+        val_samples[object_name] = sorted(val_list)
+        test_samples[object_name] = sorted(test_list)
 
-                if d != "extra":
-                    step = int(np.round(len(samples) / (len(samples) * p_test), 0))
-                    iii = []
-                    for i, s in enumerate(samples):
-                        if i % step == 0:
-                            test_samples.append(os.path.join(object_name, d, s))
-                        else:
-                            train_samples.append(os.path.join(object_name, d, s))
-                        if object_name == "Disk":
-                            iii.append(i)
-                else:
-                    for s in samples:
-                        extra_train_samples.append(os.path.join(object_name, d, s))
+    print(f"{num_train} samples for training.")
+    print(f"{num_val} samples for validation.")
+    print(f"{num_test} samples for testing.")
 
-    print("number of train samples: {}".format(len(train_samples)))
-    print("number of train samples: {}".format(len(test_samples)))
-    print("number of train samples: {}".format(len(extra_train_samples)))
+    data_set = {
+        "train": train_samples,
+        "val": val_samples,
+        "test": test_samples,
+        "class": object_names,
+    }
 
-    with open(os.path.join(save_dir, "train_data_list.txt"), "w") as f:
-        for item in train_samples:
-            f.write("%s\n" % item)
-
-    with open(os.path.join(save_dir, "test_data_list.txt"), "w") as f:
-        for item in test_samples:
-            f.write("%s\n" % item)
-
-    if use_extra_data:
-        with open(os.path.join(save_dir, "extra_train_data_list.txt"), "w") as f:
-            for item in extra_train_samples:
-                f.write("%s\n" % item)
-
-    with open(os.path.join(save_dir, "classes.txt"), "w") as f:
-        for item in object_names:
-            f.write("%s\n" % item)
+    with open(os.path.join(save_dir, f"{save_name}.json"), "w") as f:
+        json.dump(data_set, f, indent=4)
 
 
-def create_dataset():
+def create_dataset(data_set_type):
+
+    data_set_path = os.path.join(root, "result/data_sets", data_set_type)
+    os.makedirs(data_set_path, exist_ok=True)
+
+    names = [os.path.splitext(file)[0] for file in os.listdir(data_set_path)]
+
+    while True:
+        print("\n" + "_" * 70)
+        name = input("Enter name of the new data set: ")
+        if name in names:
+            print(f"Dataset '{name}' already exists. Please choose a different name.")
+            continue
+
+        selection = input(
+            f"The new data set name is: '{name}'.\nType 'r' to rename, 'b' to return, or hit any other key to continue."
+        )
+        if selection == "r":
+            continue
+        elif selection == "b":
+            break
+
+        path = os.path.join(root, "result/annotated_data")
+        objects = sorted(
+            [obj for obj in os.listdir(path) if os.path.isdir(os.path.join(path, obj))]
+        )
+        while True:
+            print("\n" + "_" * 70)
+            object_names = get_selection(
+                objects + ["all"],
+                "Select objects to include into the new dataset. "
+                '\n Select multiple objects by separating them with a comma. (e.g. "1,2")',
+                multi_selection=True,
+            )
+            if not object_names:
+                break
+
+            if isinstance(object_names, str):
+                object_names = [object_names]
+
+            if object_names == ["all"]:
+                object_names = objects
+
+            make_train_and_test_dataset(object_names, data_set_type, name)
+
+            print("\n" + "_" * 70)
+            print(
+                'Created new "{}" data set "{}", with "{}" objects: '.format(
+                    data_set_type, name, len(object_names)
+                )
+            )
+            print(object_names)
+            return print("Returning to Main Menu")
+
+
+def main():
 
     data_set_types = [
-        "2d_obj_detection",
-        "3d_obj_detection",
-        "6d_obj_pose_estimation",
-        "img_segmentation",
+        "2dbbox",
+        "3dbbox",
+        "6dpose",
+        # "img_seg",
     ]
 
     while True:
-        print("____________________________________________________________________")
+        print("\n" + "_" * 70)
         data_set_type = get_selection(data_set_types, "Select the data set type")
         if not data_set_type:
             return print("Returning to Main Menu")
-
-        data_set_path = os.path.join(root, "result/data_sets", data_set_type)
-        if not os.path.exists(data_set_path):
-            os.makedirs(data_set_path)
-        names = os.listdir(data_set_path)
-
-        if data_set_type == "2d_obj_detection":
-            while True:
-                print(
-                    "____________________________________________________________________"
-                )
-                name = input("Enter name of the new data set: ")
-                if name in names:
-                    print(
-                        f"Dataset '{name}' already exists. Please choose a different name."
-                    )
-                    continue
-
-                selection = input(
-                    f"The new data set name is: '{name}'.\nType 'r' to rename, 'b' to return, or hit any other key to continue."
-                )
-                if selection == "r":
-                    continue
-                elif selection == "b":
-                    break
-
-                path = os.path.join(root, "result/annotated_data")
-                objects = sorted(os.listdir(path))
-                while True:
-                    print(
-                        "____________________________________________________________________"
-                    )
-                    object_names = get_selection(
-                        objects.append,
-                        "Select objects to include into the new dataset. "
-                        '\n Select multiple objects by separating them with a comma. (e.g. "1,2")',
-                        multi_selection=True,
-                    )
-                    if not object_names:
-                        break
-
-                    if isinstance(object_names, str):
-                        object_names = [object_names]
-
-                    if object_names == ["all"]:
-                        object_names = objects
-
-                    make_train_and_test_dataset(object_names, data_set_type, name)
-                    print(
-                        "____________________________________________________________________"
-                    )
-                    print(
-                        'Created new "{}" data set "{}", with "{}" objects: '.format(
-                            data_set_type, name, len(object_names)
-                        )
-                    )
-                    for i, object_name in enumerate(object_names):
-                        print("{}   : {}".format(i + 1, object_name))
-                    return print("Returning to Main Menu")
+        create_dataset(data_set_type)
 
 
 if __name__ == "__main__":
     root = str(Path(__file__).resolve().parent)
 
-    create_dataset()
+    main()
