@@ -162,7 +162,9 @@ cython_debug/
 #.idea/
 
 # Customized configuration files
+.DS_Store
 result*
 ur_log*
 URBasic/__pycache__/*
-.DS_Store
+DenseFusion*
+YOLOv5*
