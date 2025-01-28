@@ -170,11 +170,11 @@ class Annotator2DBBox:
 
         return bg_removed
 
-    def annotate(self, show_result=False, save_vis_dir=None):
+    def annotate(self, show_result=False, save_vis_dir=None, save_mask=False):
         """Draw 2D BBox (rectangle) around the object given the result of chroma_key(raw_rgb_img)"""
-        image = self.remove_bkg_chroma_key()
+        rgba_image = self.remove_bkg_chroma_key()
 
-        _, _, _, alpha = cv2.split(image)
+        _, _, _, alpha = cv2.split(rgba_image)
         contours, _ = cv2.findContours(
             alpha, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
         )
@@ -223,6 +223,9 @@ class Annotator2DBBox:
                 cv2.cvtColor(vis, cv2.COLOR_BGR2RGB),
             )
 
+        if save_mask:
+            self.convert_to_bw(rgba_image, show_result, save_vis_dir)
+
         return self.annotation
 
     def visualize_2dbbox(self, show=False):
@@ -243,6 +246,52 @@ class Annotator2DBBox:
             cv2.destroyAllWindows()
 
         return img
+
+    def convert_to_bw(self, rgba_image, show_result=False, save_vis_dir=None):
+        """
+        Convert the result of remove_bkg_chroma_key into a black-white image
+
+        Parameters:
+        rgba_image (numpy.ndarray): The RGBA image from remove_bkg_chroma_key
+
+        Returns:
+        bw_image (numpy.ndarray): The black-white image
+        """
+        # Create a mask where the alpha channel is greater than 0
+        mask = rgba_image[:, :, 3] > 0
+
+        # Create a black-white image
+        bw_image = np.zeros((rgba_image.shape[0], rgba_image.shape[1]), dtype=np.uint8)
+        bw_image[mask] = 255
+
+        # Apply the bounding box annotation mask
+        if self.annotation:
+            shape = self.annotation.get("shapes")[0]
+            [x_min, y_min] = shape.get("points")[0]
+            [x_max, y_max] = shape.get("points")[1]
+            bbox_mask = np.zeros_like(bw_image, dtype=bool)
+            bbox_mask[y_min:y_max, x_min:x_max] = True
+            bw_image[~bbox_mask] = 0
+
+        if show_result:
+            cv2.imshow("Black-white image", bw_image)
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
+
+        if save_vis_dir is not None:
+            os.makedirs(
+                os.path.join(save_vis_dir, "seg_mask"),
+                exist_ok=True,
+            )
+            filename = os.path.basename(self.color_img_path).replace(
+                "color", "seg_mask"
+            )
+            cv2.imwrite(
+                os.path.join(save_vis_dir, "seg_mask", filename),
+                bw_image,
+            )
+
+        return bw_image
 
 
 class Annotator6DPose:
@@ -599,16 +648,65 @@ class Annotator3DBBox:
 
 
 class AnnotatorImgSeg:
-    def __init__(self):
-        self.annotation = {}
-        raise NotImplementedError("The annotate method is not implemented yet.")
+    def __init__(self, color_img_path, depth_img_path, meta_path):
+        self.color_img_path = color_img_path
+        self.color_img_bgr = cv2.imread(self.color_img_path)
+        if self.color_img_bgr is None:
+            raise FileNotFoundError(f"Color image not found at {self.color_img_path}")
+        self.color_img_rgb = cv2.cvtColor(self.color_img_bgr, cv2.COLOR_BGR2RGB)
 
-    def annotate(self):
+        self.depth_img_path = depth_img_path
+        self.depth_img = cv2.imread(self.depth_img_path)
+        if self.depth_img is None:
+            raise FileNotFoundError(f"Depth image not found at {self.depth_img_path}")
+
+        self.meta_path = meta_path
+        with open(self.meta_path, "r") as f:
+            self.meta = json.load(f)
+
+        self.depth_scale = self.meta.get("depth_scale")
+
+        self.annotation = {}
+
+        self.annotator_2dbbox = Annotator2DBBox(
+            color_img_path, depth_img_path, meta_path
+        )
+
+    def annotate(self, show_result=False, save_vis_dir=None):
         """
         Transform the chroma-key processed image to segmentation annotation (optional)
         TODO fix this annotator
         """
-        raise NotImplementedError("The annotate method is not implemented yet.")
+
+        rgba_image = self.annotator_2dbbox.remove_bkg_chroma_key()
+        seg_mask = self.annotator_2dbbox.convert_to_bw(
+            rgba_image, show_result, save_vis_dir
+        )
+
+        self.annotation = {
+            "seg_mask": seg_mask.tolist(),
+            "img_path": os.path.basename(self.color_img_path),
+            "img_height": self.color_img_bgr.shape[0],
+            "img_width": self.color_img_bgr.shape[1],
+        }
+
+        if save_vis_dir is not None:
+            os.makedirs(
+                os.path.join(save_vis_dir, "img_seg"),
+                exist_ok=True,
+            )
+            filename = os.path.basename(self.color_img_path).replace("color", "img_seg")
+            cv2.imwrite(
+                os.path.join(save_vis_dir, "img_seg", filename),
+                seg_mask,
+            )
+
+        if show_result:
+            cv2.imshow("Segmentation mask", seg_mask)
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
+
+        return self.annotation
 
 
 def test_2DBBox():

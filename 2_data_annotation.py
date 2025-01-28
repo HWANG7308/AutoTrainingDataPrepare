@@ -12,7 +12,7 @@ import time
 import datetime
 import numpy as np
 from tqdm import tqdm
-from utils.DataAnnotator import Annotator2DBBox, Annotator3DBBox, Annotator6DPose
+from utils.DataAnnotator import *
 from utils.utils import get_selection
 
 
@@ -143,7 +143,7 @@ def create_labels(annotation_type, save_vis=False):
 
             if annotation_type == "2dbbox":
                 annotator = Annotator2DBBox(color_img_path, depth_img_path, meta_path)
-                _ = annotator.remove_bkg_chroma_key(save_vis_dir=save_vis_dir)
+                annotator.remove_bkg_chroma_key(save_vis_dir=save_vis_dir)
                 annotation = annotator.annotate(save_vis_dir=save_vis_dir)
             elif annotation_type == "remove_bkg_chroma_key_grayscale":
                 annotator = Annotator2DBBox(color_img_path, depth_img_path, meta_path)
@@ -164,10 +164,11 @@ def create_labels(annotation_type, save_vis=False):
                 annotator = Annotator3DBBox(
                     color_img_path, depth_img_path, meta_path, T_obj2objc
                 )
-                _ = annotator.init_front_top_views(annotation_front, annotation_top)
+                annotator.init_front_top_views(annotation_front, annotation_top)
                 annotation = annotator.annotate(save_vis_dir=save_vis_dir)
             elif annotation_type == "img_seg":
-                raise ValueError("Yet to be merged")  # TODO merge the function
+                annotator = AnnotatorImgSeg(color_img_path, depth_img_path, meta_path)
+                annotation = annotator.annotate(save_vis_dir=save_vis_dir)
             else:
                 raise ValueError(
                     "Invalid annotation type. Use '2dbbox', '6dpose', '3dbbox', 'img_seg', or 'remove_bkg_chroma_key'."
@@ -217,8 +218,7 @@ def create_labels_img_seg():
     """
     Create segmentation mask labels for the acquired data.
     """
-    # create_labels("img_seg", save_vis=True)
-    raise NotImplementedError
+    create_labels("img_seg", save_vis=True)
 
 
 def remove_bkg_chroma_key_grayscale():
