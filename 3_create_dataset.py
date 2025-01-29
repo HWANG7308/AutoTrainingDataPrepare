@@ -31,7 +31,7 @@ def make_train_and_test_dataset(
     val_samples = {}
     test_samples = {}
 
-    save_dir = os.path.join(root, "result/data_sets", data_set_type)
+    save_dir = os.path.join(root, "result/datasets", data_set_type)
     os.makedirs(save_dir, exist_ok=True)
 
     for object_name in object_names:
@@ -67,7 +67,7 @@ def make_train_and_test_dataset(
 
 def create_dataset(data_set_type):
 
-    data_set_path = os.path.join(root, "result/data_sets", data_set_type)
+    data_set_path = os.path.join(root, "result/datasets", data_set_type)
     os.makedirs(data_set_path, exist_ok=True)
 
     names = [os.path.splitext(file)[0] for file in os.listdir(data_set_path)]
