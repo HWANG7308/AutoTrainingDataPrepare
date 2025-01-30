@@ -1,3 +1,8 @@
+import sys
+import os
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "."))
+
 import URBasic
 import math3d as m3d
 import math
