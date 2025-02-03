@@ -165,7 +165,6 @@ cython_debug/
 .DS_Store
 result
 experiments
+temp
 ur_log*
 URBasic/__pycache__/*
-DenseFusion*
-YOLOv5*
