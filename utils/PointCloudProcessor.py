@@ -6,20 +6,39 @@ import json
 
 class PointCloudProcessor:
     def __init__(self, rgb_dir, depth_threshold=300):
+        """
+        Attributes:
+        rgbd_images (list): List to store RGBD images.
+        transformation_matrices (list): List to store transformation matrices.
+        camera_intrinsics (o3d.camera.PinholeCameraIntrinsic): Camera intrinsics.
+        Initialize the PointCloudProcessor.
+
+        Parameters:
+        rgb_dir (str): Directory containing RGB images.
+        depth_threshold (int): Threshold for depth values in millimeter. Default is 300.
+        """
         self.rgb_dir = rgb_dir
         self.depth_threshold = depth_threshold
+
         self.rgbd_images = []
         self.transformation_matrices = []
         self.camera_intrinsics = None
 
+        self.load_images_and_metadata()
+
     def load_images_and_metadata(self):
-        rgb_files = sorted(os.listdir(self.rgb_dir))
+        obj = self.rgb_dir.split("/")[-2]
+
+        rgb_files = os.listdir(self.rgb_dir)
 
         for rgb_file in rgb_files:
             color_img_path = os.path.join(self.rgb_dir, rgb_file)
             depth_img_path = color_img_path.replace("color", "depth")
-            mask_file_path = color_img_path.replace("color", "img_seg").replace(
-                ".png", ".json"
+            mask_file_path = (
+                color_img_path.replace("acquired_data", "annotated_data")
+                .replace(obj, obj + "/label")
+                .replace("color", "img_seg")
+                .replace(".png", ".json")
             )
             meta_file_path = color_img_path.replace("color", "meta").replace(
                 ".png", ".json"
@@ -80,15 +99,75 @@ class PointCloudProcessor:
             )
             pcd_partial.transform(transformation)
             pcd += pcd_partial
+
         return pcd
 
-    def save_point_cloud(self, pcd, filename="reconstructed_point_cloud.ply"):
+    def post_process_point_cloud(
+        self,
+        pcd,
+        voxel_size=1e-3,
+        remove_outliers=False,
+        nb_neighbors=20,
+        std_ratio=2.0,
+        smooth=False,
+        smooth_max_nn=30,
+        smooth_radius=1e-2,
+    ):
+        # Downsample the point cloud
+        pcd_down = pcd.voxel_down_sample(voxel_size=voxel_size)
+
+        if remove_outliers:
+            # Remove statistical outliers
+            _, ind = pcd_down.remove_statistical_outlier(nb_neighbors, std_ratio)
+            pcd_down = pcd_down.select_by_index(ind)
+
+        if smooth:
+            # Smooth the point cloud using a radius outlier removal
+            pcd_down, _ = pcd_down.remove_radius_outlier(
+                nb_points=smooth_max_nn, radius=smooth_radius
+            )
+
+        return pcd_down
+
+    def save_point_cloud(
+        self,
+        pcd,
+        save_dir="point_clouds",
+        filename="reconstructed_point_cloud",
+        save_format="ply",
+    ):
+        os.makedirs(save_dir, exist_ok=True)
+        filename = os.path.join(save_dir, filename + "." + save_format)
         o3d.io.write_point_cloud(filename, pcd)
+
+    def visualize_point_cloud(self, pcd):
+        o3d.visualization.draw_geometries([pcd])
+
+    def reconstruct_mesh_from_point_cloud(self, pcd, radius=0.01, max_nn=30, depth=9):
+        pcd.estimate_normals(
+            search_param=o3d.geometry.KDTreeSearchParamHybrid(radius, max_nn)
+        )
+        mesh, _ = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(pcd, depth)
+
+        return mesh
+
+    def save_mesh(
+        self,
+        mesh,
+        save_dir="meshes",
+        filename="reconstructed_mesh",
+        save_format="obj",
+    ):
+        os.makedirs(save_dir, exist_ok=True)
+        filename = os.path.join(save_dir, filename + "." + save_format)
+        o3d.io.write_triangle_mesh(filename, mesh)
+
+    def visualize_mesh(self, mesh):
+        o3d.visualization.draw_geometries([mesh])
 
 
 def main():
     processor = PointCloudProcessor(rgb_dir="color")
-    processor.load_images_and_metadata()
     pcd = processor.reconstruct_point_cloud()
     processor.save_point_cloud(pcd)
 
