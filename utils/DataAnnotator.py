@@ -692,12 +692,12 @@ class AnnotatorImgSeg:
 
         if save_vis_dir is not None:
             os.makedirs(
-                os.path.join(save_vis_dir, "img_seg"),
+                os.path.join(save_vis_dir, "mask"),
                 exist_ok=True,
             )
-            filename = os.path.basename(self.color_img_path).replace("color", "img_seg")
+            filename = os.path.basename(self.color_img_path).replace("color", "mask")
             cv2.imwrite(
-                os.path.join(save_vis_dir, "img_seg", filename),
+                os.path.join(save_vis_dir, "mask", filename),
                 seg_mask,
             )
 

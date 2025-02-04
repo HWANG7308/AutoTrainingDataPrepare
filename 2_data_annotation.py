@@ -21,7 +21,7 @@ def save_annotations(annotation_type, data_save_dir, n, annotation):
     Save the annotations to a JSON file.
 
     Parameters:
-    annotion_type (str): Type of annotation ("2dbbox", "6dpose", "3dbbox", "img_seg", "remove_bkg_chroma_key").
+    annotion_type (str): Type of annotation ("2dbbox", "6dpose", "3dbbox", "mask", "remove_bkg_chroma_key").
     data_save_dir (str): Directory to save the annotations.
     n (int): Index of the current sample.
     annotation (dict): Annotation to save.
@@ -76,7 +76,7 @@ def create_labels(annotation_type, save_vis=False):
     Create labels for the acquired data.
 
     Parameters:
-    annotation_type (str): Type of annotation ("2dbbox", "6dpose", "3dbbox", "img_seg", "remove_bkg_chroma_key").
+    annotation_type (str): Type of annotation ("2dbbox", "6dpose", "3dbbox", "mask", "remove_bkg_chroma_key").
     """
     raw_data_dir = os.path.join(root, "result/acquired_data")
     if not os.path.exists(raw_data_dir):
@@ -166,7 +166,7 @@ def create_labels(annotation_type, save_vis=False):
                 )
                 annotator.init_front_top_views(annotation_front, annotation_top)
                 annotation = annotator.annotate(save_vis_dir=save_vis_dir)
-            elif annotation_type == "img_seg":
+            elif annotation_type == "mask":
                 annotator = AnnotatorImgSeg(color_img_path, depth_img_path, meta_path)
                 annotation = annotator.annotate(save_vis_dir=save_vis_dir)
             else:
@@ -218,7 +218,7 @@ def create_labels_img_seg():
     """
     Create segmentation mask labels for the acquired data.
     """
-    create_labels("img_seg", save_vis=True)
+    create_labels("mask", save_vis=True)
 
 
 def remove_bkg_chroma_key_grayscale():
