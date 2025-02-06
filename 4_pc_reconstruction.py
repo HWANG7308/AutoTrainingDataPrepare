@@ -22,7 +22,8 @@ def generate_point_clouds(data_dir, output_dir):
             pcd, save_dir=pc_save_dir, filename="pc", save_format="ply"
         )
 
-        mesh = pc_processor.reconstruct_mesh_from_point_cloud(pcd)
+        # mesh = pc_processor.reconstruct_mesh_from_point_cloud(pcd)
+        mesh = pc_processor.convex_hull(pcd)
         pc_processor.save_mesh(
             mesh, save_dir=pc_save_dir, filename="mesh", save_format="ply"
         )

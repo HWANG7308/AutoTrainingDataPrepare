@@ -151,6 +151,10 @@ class PointCloudProcessor:
 
         return mesh
 
+    def convex_hull(self, pcd):
+        hull, _ = pcd.compute_convex_hull()
+        return hull
+
     def save_mesh(
         self,
         mesh,
@@ -170,6 +174,7 @@ def main():
     processor = PointCloudProcessor(rgb_dir="color")
     pcd = processor.reconstruct_point_cloud()
     processor.save_point_cloud(pcd)
+    processor.convex_hull(pcd)
 
 
 if __name__ == "__main__":
