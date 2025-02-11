@@ -164,8 +164,6 @@ class PoseGenerator:
     def visualization(self, pose_list):
         import matplotlib.pyplot as plt
 
-        # from mpl_toolkits.mplot3d import Axes3D
-
         # Example PoseVector list
         pose_vectors = [pose.get("T_rob2end") for pose in pose_list]
         pose_vectors.append(self.T_rob2obj)
@@ -249,6 +247,9 @@ class PoseGenerator:
         ax.set_ylabel("Y")
         ax.set_zlabel("Z")
         ax.set_title("PoseVector Visualization (Equal Scale)")
+
+        # Set the aspect ratio to be equal
+        ax.set_box_aspect([1, 1, 1])
 
         # Show the plot
         plt.show()
@@ -367,7 +368,7 @@ def test_robot_joint():
 
 if __name__ == "__main__":
 
-    from utils.utils import get_selection
+    from utils import get_selection
 
     # Create a UR5 robot controller
     # ROBOT_IP = "192.168.2.144"  # URSim
