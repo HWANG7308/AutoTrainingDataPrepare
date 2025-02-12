@@ -89,7 +89,7 @@ class PointCloudProcessor:
             color_intrinsics["ppy"],
         )
 
-    def reconstruct_point_cloud(self):
+    def reconstruct_point_cloud(self, pre_process=False, post_process=False):
         pcd = o3d.geometry.PointCloud()
         for rgbd_image, transformation in zip(
             self.rgbd_images, self.transformation_matrices
@@ -98,17 +98,22 @@ class PointCloudProcessor:
                 rgbd_image, self.camera_intrinsics
             )
             pcd_partial.transform(transformation)
+            if pre_process:
+                pcd_partial = self.process_point_cloud(pcd_partial)
             pcd += pcd_partial
+
+        if post_process:
+            pcd = self.process_point_cloud(pcd)
 
         return pcd
 
-    def post_process_point_cloud(
+    def process_point_cloud(
         self,
         pcd,
         voxel_size=1e-3,
         remove_outliers=False,
         nb_neighbors=20,
-        std_ratio=2.0,
+        std_ratio=5,
         smooth=False,
         smooth_max_nn=30,
         smooth_radius=1e-2,
@@ -154,6 +159,9 @@ class PointCloudProcessor:
     def convex_hull(self, pcd):
         hull, _ = pcd.compute_convex_hull()
         return hull
+
+    def alpha_shape(self, pcd, alpha=0.01):
+        return o3d.geometry.TriangleMesh.create_from_point_cloud_alpha_shape(pcd, alpha)
 
     def save_mesh(
         self,

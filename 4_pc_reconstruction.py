@@ -13,11 +13,7 @@ def generate_point_clouds(data_dir, output_dir):
         os.makedirs(pc_save_dir, exist_ok=True)
 
         pc_processor = PointCloudProcessor(rgb_dir=rgb_dir)
-        pcd = pc_processor.reconstruct_point_cloud()
-        pcd = pc_processor.post_process_point_cloud(
-            pcd,
-            voxel_size=5e-4,
-        )
+        pcd = pc_processor.reconstruct_point_cloud(pre_process=True, post_process=True)
         pc_processor.save_point_cloud(
             pcd, save_dir=pc_save_dir, filename="pc", save_format="ply"
         )
