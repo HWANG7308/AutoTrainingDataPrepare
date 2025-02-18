@@ -36,6 +36,7 @@ class Annotator2DBBox:
 
     def remove_bkg_chroma_key(
         self,
+        img=None,
         white_range=(170, 255),
         show_result=False,
         save_vis_dir=None,
@@ -49,7 +50,7 @@ class Annotator2DBBox:
         save_vis_dir (str): The directory for saving the visualization.
         """
 
-        rgb_img = self.color_img_rgb
+        rgb_img = self.color_img_rgb if img is None else img
         gray = cv2.cvtColor(rgb_img, cv2.COLOR_RGB2GRAY)
         _, mask = cv2.threshold(gray, white_range[0], white_range[1], cv2.THRESH_BINARY)
         mask = cv2.bitwise_not(mask)
@@ -82,6 +83,7 @@ class Annotator2DBBox:
 
     def remove_bkg_chroma_key_HSV(
         self,
+        img=None,
         lower_white=np.array([0, 0, 168]),
         upper_white=np.array([172, 111, 255]),
         show_result=False,
@@ -95,7 +97,7 @@ class Annotator2DBBox:
         save_vis_dir (str): The directory for saving the visualization.
         """
 
-        rgb_img = self.color_img_rgb
+        rgb_img = self.color_img_rgb if img is None else img
         hsv = cv2.cvtColor(rgb_img, cv2.COLOR_RGB2HSV)
         mask = cv2.inRange(hsv, lower_white, upper_white)
         mask_inv = cv2.bitwise_not(mask)
@@ -128,6 +130,8 @@ class Annotator2DBBox:
 
     def remove_bkg_depth_value(
         self,
+        rgb_img=None,
+        depth_img=None,
         clipping_distance_in_meters=0.3,
         show_result=False,
         save_vis_dir=None,
@@ -138,8 +142,8 @@ class Annotator2DBBox:
         TODO This method is not robust enough with small objects like connector terminals, fix this background removal based on depth value
         """
 
-        color_image = self.color_img_bgr
-        depth_img = self.depth_img
+        color_image = self.color_img_bgr if rgb_img is None else rgb_img
+        depth_img = self.depth_img if depth_img is None else depth_img
 
         clipping_distance = clipping_distance_in_meters / self.depth_scale
 
@@ -165,6 +169,57 @@ class Annotator2DBBox:
             )
             cv2.imwrite(
                 os.path.join(save_vis_dir, "remove_bkg_depth_value", filename),
+                cv2.cvtColor(bg_removed, cv2.COLOR_BGR2RGB),
+            )
+
+        return bg_removed
+
+    def remove_bkg_chroma_key_grayscale_depth(
+        self,
+        rgb_img=None,
+        depth_img=None,
+        white_range=(170, 255),
+        clipping_distance_in_meters=0.3,
+        show_result=False,
+        save_vis_dir=None,
+    ):
+        """
+        Remove background based on chroma key and depth value
+        """
+
+        rgba_image = self.remove_bkg_chroma_key(img=rgb_img, white_range=white_range)
+        rgb_no_bkg = cv2.cvtColor(rgba_image, cv2.COLOR_RGBA2RGB)
+        bg_removed = self.remove_bkg_depth_value(
+            rgb_img=rgb_no_bkg,
+            depth_img=depth_img,
+            clipping_distance_in_meters=clipping_distance_in_meters,
+        )
+
+        bg_removed = cv2.cvtColor(bg_removed, cv2.COLOR_BGR2RGBA)
+        bg_removed[np.all(bg_removed[:, :, :3] == [0, 0, 0], axis=-1)] = [0, 0, 0, 0]
+
+        # Combine the two results
+        mask = rgba_image[:, :, 3] > 0
+        bg_removed[mask] = rgba_image[mask]
+
+        if show_result:
+            cv2.imshow(
+                "Result of background removal based on chroma key and depth value",
+                bg_removed,
+            )
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
+
+        if save_vis_dir is not None:
+            os.makedirs(
+                os.path.join(save_vis_dir, "remove_bkg_chroma_key_depth"),
+                exist_ok=True,
+            )
+            filename = os.path.basename(self.color_img_path).replace(
+                "color", "remove_bkg_chroma_key_depth"
+            )
+            cv2.imwrite(
+                os.path.join(save_vis_dir, "remove_bkg_chroma_key_depth", filename),
                 cv2.cvtColor(bg_removed, cv2.COLOR_BGR2RGB),
             )
 

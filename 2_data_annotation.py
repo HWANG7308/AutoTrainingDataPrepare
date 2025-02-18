@@ -155,6 +155,12 @@ def create_labels(annotation_type, save_vis=False):
                     save_vis_dir=save_vis_dir
                 )
                 continue
+            elif annotation_type == "remove_bkg_chroma_key_grayscale_depth":
+                annotator = Annotator2DBBox(color_img_path, depth_img_path, meta_path)
+                annotation = annotator.remove_bkg_chroma_key_grayscale_depth(
+                    save_vis_dir=save_vis_dir
+                )
+                continue
             elif annotation_type == "6dpose":
                 annotator = Annotator6DPose(
                     color_img_path, depth_img_path, meta_path, T_obj2objc
@@ -235,6 +241,13 @@ def remove_bkg_chroma_key_hsv():
     create_labels("remove_bkg_chroma_key_hsv", save_vis=True)
 
 
+def remove_bkg_chroma_key_grayscale_depth():
+    """
+    Create background removed data for the acquired data based on chroma key (grayscale) and depth value.
+    """
+    create_labels("remove_bkg_chroma_key_grayscale_depth", save_vis=True)
+
+
 def main():
     s = {
         "Create Labels (2D BBox)": create_labels_2dbbox,
@@ -243,6 +256,7 @@ def main():
         "Create Labels (Image Segmentation)": create_labels_img_seg,
         "Remove Background (Chroma Key, Grayscale)": remove_bkg_chroma_key_grayscale,
         "Remove Background (Chroma Key, HSV)": remove_bkg_chroma_key_hsv,
+        "Remove Background (Chroma Key, Grayscale, Depth)": remove_bkg_chroma_key_grayscale_depth,
     }
 
     while True:
