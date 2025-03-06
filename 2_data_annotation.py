@@ -129,6 +129,8 @@ def create_labels(annotation_type, save_vis=False):
                 annotation_front, annotation_top, meta_path=front_meta_path
             )
 
+        anno_start_time_obj = time.time()
+
         for n, color_img in enumerate(
             tqdm(color_imgs, desc=f"Processing data for {name}")
         ):
@@ -140,6 +142,8 @@ def create_labels(annotation_type, save_vis=False):
             if save_vis:
                 save_vis_dir = os.path.join(data_save_dir, name, "vis")
                 os.makedirs(save_vis_dir, exist_ok=True)
+            else:
+                save_vis_dir = None
 
             if annotation_type == "2dbbox":
                 annotator = Annotator2DBBox(color_img_path, depth_img_path, meta_path)
@@ -191,6 +195,15 @@ def create_labels(annotation_type, save_vis=False):
                 n,
                 annotation,
             )
+
+        anno_end_time_obj = time.time()
+        anno_time_obj = anno_end_time_obj - anno_start_time_obj
+        time_report_obj = {"Annotation time": anno_time_obj}
+        with open(
+            os.path.join(data_save_dir, name, f"time_{annotation_type}_{name}.json"),
+            "w",
+        ) as f:
+            json.dump(time_report_obj, f, indent=4)
 
     annotation_end_time = time.time()
     annotation_time = annotation_end_time - annotation_start_time
