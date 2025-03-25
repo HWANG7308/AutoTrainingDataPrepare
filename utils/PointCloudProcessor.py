@@ -143,7 +143,7 @@ class PointCloudProcessor:
     ):
         os.makedirs(save_dir, exist_ok=True)
         filename = os.path.join(save_dir, filename + "." + save_format)
-        o3d.io.write_point_cloud(filename, pcd)
+        o3d.io.write_point_cloud(filename, pcd, write_ascii=True)
 
     def visualize_point_cloud(self, pcd):
         o3d.visualization.draw_geometries([pcd])
@@ -172,7 +172,7 @@ class PointCloudProcessor:
     ):
         os.makedirs(save_dir, exist_ok=True)
         filename = os.path.join(save_dir, filename + "." + save_format)
-        o3d.io.write_triangle_mesh(filename, mesh)
+        o3d.io.write_triangle_mesh(filename, mesh, write_ascii=True)
 
     def visualize_mesh(self, mesh):
         o3d.visualization.draw_geometries([mesh])
