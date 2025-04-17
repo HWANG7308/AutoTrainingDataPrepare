@@ -268,8 +268,12 @@ def visualize_robot_position():
     _ = PoseGenerator(T_rob2obj, T_end2cam).generate_positions(show_result=True)
 
 
-def test_robot_position(save_joints=True):
-    from utils.URController import UR5RobotController
+def test_robot_position(save_joints=False, step_check=False):
+    from URController import UR5RobotController
+
+    print("--- Testing robot positions...")
+    print("- Save joints: ", save_joints)
+    print("- Step check: ", step_check)
 
     UR5 = UR5RobotController(ROBOT_IP, acceleration=1, velocity=1)
 
@@ -281,8 +285,10 @@ def test_robot_position(save_joints=True):
         m3d.Orientation.new_rotation_vector((0, 0, 0)), m3d.Vector(0, 0, 0.05)
     )
     robot_poses = PoseGenerator(
-        T_rob2obj, T_end2cam  # , num_azi=36, num_polar=36
+        T_rob2obj, T_end2cam, num_azi=120, num_polar=31
     ).generate_positions(change_first="azimuth")
+
+    print(f"Number of poses: {len(robot_poses)}")
 
     robot_joints = {} if save_joints else None
 
@@ -291,15 +297,21 @@ def test_robot_position(save_joints=True):
         for n, pose in enumerate(robot_poses):
             print("\n" + "_" * 70)
 
-            while True:
-                if n in return_init_index:
-                    UR5.go_init()
-                m = input("Go to next position? ['y': yes, 'n': back to init]")
-                if m == "y":
-                    print("Move on")
-                    break
-                elif m == "n":
-                    UR5.go_init()
+            if step_check:
+                while True:
+                    if n in return_init_index:
+                        UR5.go_init()
+                    m = (
+                        input(
+                            "Go to next position? ['y': yes, 'n': back to init] (default: y) "
+                        )
+                        or "y"
+                    )
+                    if m == "y":
+                        print("Move on")
+                        break
+                    elif m == "n":
+                        UR5.go_init()
 
             next_pose = pose.get("next pose")
             print(f"Pose {n}: {next_pose}")
@@ -307,17 +319,20 @@ def test_robot_position(save_joints=True):
             target_joints = np.degrees(UR5.robot.get_inverse_kin(next_pose))
             print(f"Target robot joints: {target_joints}")
 
-            robot_joint = UR5.move_robot(pose=next_pose, return_joint=save_joints)
+            robot_joint = UR5.move_robot(
+                pose=next_pose, check_joint=True, return_joint=save_joints
+            )
             print(f"Current robot joints: {robot_joint}")
 
-            while True:
-                r = input("Redo the move? ['y': yes, 'n': no]")
-                if r == "y":
-                    robot_joint = UR5.move_robot(
-                        pose=next_pose, return_joint=save_joints
-                    )
-                elif r == "n":
-                    break
+            if step_check:
+                while True:
+                    r = input("Redo the move? ['y': yes, 'n': no] (default: n) ") or "n"
+                    if r == "y":
+                        robot_joint = UR5.move_robot(
+                            pose=next_pose, check_joint=True, return_joint=save_joints
+                        )
+                    elif r == "n":
+                        break
 
             # at_target = np.all(np.abs(np.array(target_joints) - robot_joint) < 0.02)
             # print(f"Robot at target joint positions? {at_target}")
@@ -346,7 +361,7 @@ def test_robot_position(save_joints=True):
 
 
 def test_robot_joint():
-    from utils.URController import UR5RobotController
+    from URController import UR5RobotController
 
     UR5 = UR5RobotController(ROBOT_IP, acceleration=1, velocity=1)
 
@@ -371,8 +386,8 @@ if __name__ == "__main__":
     from utils import get_selection
 
     # Create a UR5 robot controller
-    # ROBOT_IP = "192.168.2.144"  # URSim
-    ROBOT_IP = "192.168.2.196"  # UR5
+    ROBOT_IP = "192.168.2.144"  # URSim
+    # ROBOT_IP = "192.168.2.196"  # UR5
 
     s = {
         "Visualize robot positions": visualize_robot_position,
