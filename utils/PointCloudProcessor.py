@@ -37,7 +37,7 @@ class PointCloudProcessor:
             mask_file_path = (
                 color_img_path.replace("acquired_data", "annotated_data")
                 .replace(obj, obj + "/label")
-                .replace("color", "img_seg")
+                .replace("color", "mask")
                 .replace(".png", ".json")
             )
             meta_file_path = color_img_path.replace("color", "meta").replace(
