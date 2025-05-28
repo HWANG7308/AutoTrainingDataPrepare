@@ -298,8 +298,8 @@ def test_robot_position(save_joints=False, step_check=False):
     robot_poses = PoseGenerator(
         T_rob2obj,
         T_end2cam,
-        num_azi=120,  # change the number of azimuth to generate more/less poses along the azimuth direction
-        num_polar=31,  # change the number of polar angles to generate more/less poses along the polar direction
+        # num_azi=120,
+        # num_polar=31,
     ).generate_positions(change_first="azimuth")
 
     print(f"Number of poses: {len(robot_poses)}")
