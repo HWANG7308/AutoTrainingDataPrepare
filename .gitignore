@@ -163,7 +163,7 @@ cython_debug/
 
 # Customized configuration files
 .DS_Store
-result
+result*
 under_development
 ur_log*
 URBasic/__pycache__/*
