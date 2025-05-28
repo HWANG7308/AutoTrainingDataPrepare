@@ -269,6 +269,17 @@ def visualize_robot_position():
 
 
 def test_robot_position(save_joints=False, step_check=False):
+    """
+    Test the robot positions by moving the robot to various end effector positions
+    and checking the joint positions.
+
+    The robot positions are generated based on the PoseGenerator class, which creates a set of poses
+    for the robot to move to. The robot will then move to each pose and check if the joint positions
+    are within a certain threshold of the target joint positions.
+    The joint positions can be saved to a JSON file if 'save_joints' is set to True.
+    The 'step_check' parameter allows for manual stepping through the poses, where the user can confirm
+    whether to proceed to the next pose or return to the initial position.
+    """
     from URController import UR5RobotController
 
     print("--- Testing robot positions...")
@@ -285,7 +296,10 @@ def test_robot_position(save_joints=False, step_check=False):
         m3d.Orientation.new_rotation_vector((0, 0, 0)), m3d.Vector(0, 0, 0.05)
     )
     robot_poses = PoseGenerator(
-        T_rob2obj, T_end2cam, num_azi=120, num_polar=31
+        T_rob2obj,
+        T_end2cam,
+        num_azi=120,  # change the number of azimuth to generate more/less poses along the azimuth direction
+        num_polar=31,  # change the number of polar angles to generate more/less poses along the polar direction
     ).generate_positions(change_first="azimuth")
 
     print(f"Number of poses: {len(robot_poses)}")
@@ -361,6 +375,9 @@ def test_robot_position(save_joints=False, step_check=False):
 
 
 def test_robot_joint():
+    """
+    Test the robot joint positions based on the saved joint positions in the JSON file.
+    """
     from URController import UR5RobotController
 
     UR5 = UR5RobotController(ROBOT_IP, acceleration=1, velocity=1)
