@@ -268,7 +268,7 @@ def visualize_robot_position():
     _ = PoseGenerator(T_rob2obj, T_end2cam).generate_positions(show_result=True)
 
 
-def test_robot_position(save_joints=False, step_check=False):
+def test_robot_position(save_joints=False, step_check=True):
     """
     Test the robot positions by moving the robot to various end effector positions
     and checking the joint positions.
@@ -403,8 +403,8 @@ if __name__ == "__main__":
     from utils import get_selection
 
     # Create a UR5 robot controller
-    ROBOT_IP = "192.168.2.144"  # URSim
-    # ROBOT_IP = "192.168.2.196"  # UR5
+    # ROBOT_IP = "192.168.2.144"  # URSim
+    ROBOT_IP = "192.168.2.196"  # UR5
 
     s = {
         "Visualize robot positions": visualize_robot_position,
