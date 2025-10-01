@@ -188,7 +188,7 @@ class PoseGenerator:
             ]  # Take the x-axis as a representative vector
 
             # Plot the position as a point
-            ax.scatter(x, y, z, c="b", marker="o")
+            ax.scatter(x, y, z, c="black", marker=".", s=5)
 
             # # Plot the orientation as an arrow
             # ax.quiver(
@@ -216,8 +216,9 @@ class PoseGenerator:
                     direction_vector[0],
                     direction_vector[1],
                     direction_vector[2],
-                    length=0.05,
+                    length=0.03,
                     color=["r", "g", "b"][i],
+                    alpha=0.2,
                 )
 
         # Equalize the scale of the axes
@@ -297,6 +298,17 @@ def visualize_robot_position():
     poses = PoseGenerator(
         T_rob2obj, T_end2cam, radius=radius, num_azi=num_azi, num_polar=num_polar
     ).generate_positions(show_result=True)
+
+    # # Visualize for multiple configurations
+    # num_azi_list = [16, 30, 60, 120]
+    # num_polar_list = [5, 9, 16, 31]
+    # for num_azi in num_azi_list:
+    #     for num_polar in num_polar_list:
+    #         print(f"Visualizing for num_azi={num_azi}, num_polar={num_polar}")
+    #         poses = PoseGenerator(
+    #             T_rob2obj, T_end2cam, radius=0.3, num_azi=num_azi, num_polar=num_polar
+    #         ).generate_positions(show_result=True)
+
     return poses
 
 
