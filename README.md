@@ -1,14 +1,16 @@
-# AutoTrainingDataPrepare
+# Accelerating industrial vision: Systematic robot-assisted dataset preparation for object detection and pose estimation
+### [Paper](https://doi.org/10.1016/j.engappai.2026.114741)
 
-## Project Description
-Robot-assisted automated training data preparation for robot vision tasks
+<br/>
 
-Uses the [UR - RTDE](https://www.universal-robots.com/how-tos-and-faqs/how-to/ur-how-tos/real-time-data-exchange-rtde-guide-22229/)- protocol to send continuous updates to a Robot for smooth continued motion.
+> Accelerating industrial vision: Systematic robot-assisted dataset preparation for object detection and pose estimation  
+> [Hao Wang](https://hwang7308.github.io/), [Gonzalo Urbanos Uriel](https://www.linkedin.com/in/gonzalo-urbanos-9707b7158/), [Karim El-Nahass](https://www.linkedin.com/in/karim-el-nahass/), [Sven Ekered](https://www.chalmers.se/en/persons/svee/), [Björn Johansson](https://www.chalmers.se/en/persons/job/)   
+> Engineering Applications of Artificial Intelligence
 
-heavily relies on this repository:
-https://github.com/Mandelbr0t/UniversalRobot-RealtimeControl
-which builds ontop of:
-https://bitbucket.org/RopeRobotics/ur-interface/src/master/
+## Project description
+The creation of large-scale, high-quality training datasets continues to present a significant challenge for the implementation of artificial intelligence in engineering and industrial robotics. This study introduces a collaborative robot-assisted pipeline that automates data acquisition and annotation, thereby accelerating dataset preparation for object detection and six-degree-of-freedom pose estimation. The proposed system integrates robotic kinematics and image processing to generate vision datasets with multimodal ground-truth labels, such as two-dimensional and three-dimensional bounding boxes, segmentation masks, six-degree-of-freedom poses, and point clouds, within a unified artificial intelligence-driven workflow. To demonstrate the pipeline’s capacity to reduce manual effort and efficiently generate large-scale training datasets for industrial vision applications, an automotive wire harness connector dataset was experimentally prepared using the proposed pipeline. This method achieved annotation speeds approximately 150 times faster than traditional manual techniques and produced high-quality training data for deep learning models. Evaluation with deep learning-based object detection and pose estimation algorithms confirms the effectiveness of the proposed pipeline in preparing datasets for the development of industrial intelligent vision systems. By minimizing human intervention and ensuring systematic viewpoint coverage during dataset preparation, the proposed approach facilitates scalable adoption of artificial intelligence-powered vision systems in industrial automation.
+
+This project uses the [UR - RTDE](https://www.universal-robots.com/how-tos-and-faqs/how-to/ur-how-tos/real-time-data-exchange-rtde-guide-22229/)- protocol to send continuous updates to a Robot for smooth continued motion, and heavily relies on this repository: https://github.com/Mandelbr0t/UniversalRobot-RealtimeControl, which builds ontop of: https://bitbucket.org/RopeRobotics/ur-interface/src/master/.
 
 The visualization of annotation labels is adapted from https://github.com/NVlabs/FoundationPose
 
@@ -30,32 +32,17 @@ python data_acquisition.py
 python data_annotation.py
 ```
 
+## Citation
+If you find this code useful for your research, please use the following BibTeX entry.
 
-## TODO
-High priority
-- [x] Robot controller
-- [x] Robot pose generation
-- [x] Camera controller
-- [x] Camera calibration
-- [x] Image acquisition
-- [x] Data annotation format confirmation (2D bounding box)
-- [x] Data annotation format confirmation (6D pose)
-- [x] 2D bounding box annotation
-- [x] 6D pose annotation
-- [ ] Training and testing (2D object detection)
-- [ ] Training and testing (6D object pose estimation)
-
-Low priority
-- [ ] Robot path planning and optimization
-- [ ] Data annotation format confirmation (3D bounding box)
-- [x] 3D bounding box annotation
-- [ ] Training and testing (3D object detection)
-- [ ] More testing
-- [ ] Demonstration video
-- [ ] Explanation video
-- [ ] License clarification
-- [ ] Cleanup
-- [ ] Refactoring
-- [ ] Documentation
-- [ ] Comments
-- [ ] Dependencies
+```bibtex
+@article{wang2026accelerating,
+	title = {Accelerating industrial vision: Systematic robot-assisted dataset preparation for object detection and pose estimation},
+	author = {Hao Wang and Gonzalo {Urbanos Uriel} and Karim El-Nahass and Sven Ekered and Björn Johansson},
+	year = 2026,
+	journal = {Engineering Applications of Artificial Intelligence},
+	volume = 176,
+	pages = 114741,
+	doi = {10.1016/j.engappai.2026.114741}
+}
+```
