@@ -44,7 +44,7 @@ python data_acquisition.py
 python data_annotation.py
 ```
 
-## Acknowledgement
+## Acknowledgment
 
 This work was supported by the [EWASS](https://www.vinnova.se/en/p/ewass---empowering-human-workers-for-assembly-of-wire-harnesses/) project, funded by the Swedish innovation agency, Vinnova, and the strategic innovation program, Produktion2030, with grant number 2022-01279. This work was also supported by the [MAXBATT](https://www.chalmers.se/en/centres/maxbatt/) project, funded by Region Västra Götaland, with grant number MRU2024-00381. The work was carried out within [Chalmers Production Area of Advance](https://www.chalmers.se/en/collaborate-with-us/collaborate-in-research/research-related-contacts/production-area-of-advance/). [Wiretronic AB](https://wiretronic.com/en/) and [Volvo Car Corporation](https://www.volvocars.com/) provided the automotive wire harness connectors used in this work. The support is gratefully acknowledged.
 
